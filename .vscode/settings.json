@@ -30,8 +30,8 @@
 				"GCC_VER=_Clang1701",
 				"PROCESSOR_ARCHITECTURE=x86",
 				"MARCH=i386",
-				/* "FBC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\fbc32.exe\"", */
-				"FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\src\\compiler\\fbc32_icase.exe\"",
+				/* "FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\src\\compiler\\fbc32_icase.exe\"", */
+				"FBC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\fbc32.exe\"",
 				"CC=\"C:\\Program Files\\LLVM\\bin\\clang.exe\"",
 				"AS=\"C:\\Program Files (x86)\\mingw32\\bin\\as.exe\"",
 				"LD=\"C:\\Program Files (x86)\\mingw32\\bin\\ld.exe\"",
@@ -75,8 +75,8 @@
 				"GCC_VER=_GCC1310",
 				"PROCESSOR_ARCHITECTURE=x86",
 				"MARCH=i386",
-				/* "FBC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\fbc32.exe\"", */
-				"FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\src\\compiler\\fbc32_icase.exe\"",
+				/* "FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\src\\compiler\\fbc32_icase.exe\"", */
+				"FBC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\fbc32.exe\"",
 				"CC=\"C:\\Program Files (x86)\\mingw32\\bin\\gcc.exe\"",
 				"AS=\"C:\\Program Files (x86)\\mingw32\\bin\\as.exe\"",
 				"LD=\"C:\\Program Files (x86)\\mingw32\\bin\\ld.exe\"",
