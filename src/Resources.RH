@@ -34,22 +34,23 @@
 #define IDR_RT_MANIFEST1             00001
 
 #define IDD_DLG_TASKS                10000
-#define IDC_GRP_TASKS                10001
-#define IDC_STC_TASKS                10002
-#define IDC_LVW_TASKS                10003
-#define IDC_BTN_ADD                  10004
-#define IDC_BTN_START                10005
-#define IDC_BTN_STOP                 10006
-#define IDC_BTN_REMOVE               10007
-#define IDC_GRP_RESULT               10008
-#define IDC_STC_RESULT               10009
-#define IDC_LST_RESULT               10010
-#define IDC_BTN_CLEAR                10011
+#define IDC_GRP_REQUEST              10001
+#define IDC_STC_URL                  10002
+#define IDC_EDT_URL                  10003
+#define IDC_STC_VERB                 10004
+#define IDC_EDT_VERB                 10005
+#define IDC_STC_FILE                 10006
+#define IDC_EDT_FILE                 10007
+#define IDC_BTN_BROWSE               10008
+#define IDC_STC_TYPE                 10009
+#define IDC_EDT_TYPE                 10010
+#define IDC_STC_USER                 10011
+#define IDC_EDT_USER                 10012
+#define IDC_STC_PASSWORD             10013
+#define IDC_EDT_PASSWORD             10014
 
-#define IDS_TASK                     20001
-#define IDS_STATUS                   20002
-#define IDS_STOPPED                  20003
-#define IDS_WORKED                   20004
-#define IDS_RUNNING                  20005
+#define IDC_GRP_RESPONSE             10020
+#define IDC_STC_RESPONSE             10021
+#define IDC_EDT_RESPONSE             10022
 
 #endif
