@@ -27,52 +27,12 @@ Private Sub DialogMain_OnLoad( _
 	
 End Sub
 
-Private Sub ButtonAdd_OnClick( _
-		ByVal this As HttpRestForm Ptr, _
-		ByVal hWin As HWND _
-	)
-	
-	
-End Sub
-
-Private Sub ButtonStart_OnClick( _
-		ByVal this As HttpRestForm Ptr, _
-		ByVal hWin As HWND _
-	)
-	
-	
-End Sub
-
-Private Sub ButtonStop_OnClick( _
-		ByVal this As HttpRestForm Ptr, _
-		ByVal hWin As HWND _
-	)
-	
-	
-End Sub
-
-Private Sub ButtonRemove_OnClick( _
-		ByVal this As HttpRestForm Ptr, _
-		ByVal hWin As HWND _
-	)
-	
-	
-End Sub
-
 Private Sub IDCANCEL_OnClick( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
 	)
 	
-	PostQuitMessage(0)
-	
-End Sub
-
-Private Sub ButtonClear_OnClick( _
-		ByVal this As HttpRestForm Ptr, _
-		ByVal hWin As HWND _
-	)
-	
+	EndDialog(hWin, IDCANCEL)
 	
 End Sub
 
@@ -81,6 +41,7 @@ Private Sub DialogMain_OnUnload( _
 		ByVal hWin As HWND _
 	)
 	
+	EndDialog(hWin, IDCANCEL)
 	
 End Sub
 
@@ -103,42 +64,14 @@ Private Function InputDataDialogProc( _
 			
 			Select Case LOWORD(wParam)
 				
-				Case IDC_BTN_ADD
-					ButtonAdd_OnClick(pParam, hWin)
-					
-				Case IDC_BTN_START
-					ButtonStart_OnClick(pParam, hWin)
-					
-				Case IDC_BTN_STOP
-					ButtonStop_OnClick(pParam, hWin)
-					
-				Case IDC_BTN_REMOVE
-					ButtonRemove_OnClick(pParam, hWin)
-					
-				Case IDC_BTN_CLEAR
-					ButtonClear_OnClick(pParam, hWin)
-					
 				Case IDCANCEL
 					IDCANCEL_OnClick(pParam, hWin)
 					
 			End Select
 			
-		Case WM_NOTIFY
-			' Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-			' Dim pHdr As NMHDR Ptr = Cast(NMHDR Ptr, lParam)
-			
-			' Select Case pHdr->code
-				
-			' 	Case NM_CLICK
-			' 		Dim lpnmitem As NMITEMACTIVATE Ptr = Cast(NMITEMACTIVATE Ptr, lParam)
-			' 		ListView_OnClick(pParam, hWin, pHdr->hwndFrom, lpnmitem)
-					
-			' End Select
-			
-		' Case WM_CLOSE
-		' 	Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-		' 	DialogMain_OnUnload(pParam, hWin)
-		' 	PostQuitMessage(0)
+		Case WM_CLOSE
+			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+			DialogMain_OnUnload(pParam, hWin)
 			
 		Case Else
 			Return FALSE
@@ -188,12 +121,7 @@ Private Function tWinMain( _
 		ByVal iCmdShow As Long _
 	)As Integer
 	
-	
-	Const WinText = __TEXT("Hello from FreeBASIC")
-	Const WinCaption = __TEXT("Test GUI")
-	
 	Dim hWin As HWND = GetDesktopWindow()
-	MessageBox(hWin, @WinText, @WinCaption, MB_OK Or MB_ICONINFORMATION)
 	
 	Scope
 		Dim hrVisualStyles As Integer = EnableVisualStyles()
@@ -245,7 +173,7 @@ Public Function EntryPoint Alias "EntryPoint"()As Integer
 	)
 	
 	#ifdef WITHOUT_RUNTIME
-		' ExitProcess(RetCode)
+		ExitProcess(RetCode)
 	#endif
 	
 	Return RetCode
