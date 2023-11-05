@@ -282,8 +282,8 @@ Private Function tWinMain( _
 		If DialogBoxParamResult = -1 Then
 			Const WinText2 = __TEXT("DialogBoxParam")
 			Const WinCaption2 = __TEXT("Error")
-			
-			DisplayError(0, @WinText2)
+			Dim dwError As DWORD = GetLastError()
+			DisplayError(dwError, @WinText2)
 			
 			Return 1
 		End If
