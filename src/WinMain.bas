@@ -2,6 +2,7 @@
 #include once "win\commctrl.bi"
 #include once "win\shlobj.bi"
 #include once "win\windowsx.bi"
+#include once "win\mswsock.bi"
 #include once "Resources.RH"
 
 Const C_COLUMNS As UINT = 2
@@ -19,11 +20,48 @@ Type MainFormParam
 	cFileName(MAX_PATH) As TCHAR
 End Type
 
+Private Function NetworkStartUp()As HRESULT
+	
+	Dim wsa As WSADATA = Any
+	
+	Dim WsaVersion22 As WORD = MAKEWORD(1, 1)
+	Dim resWsaStartup As Long = WSAStartup(WsaVersion22, @wsa)
+	
+	If resWsaStartup <> NO_ERROR Then
+		Dim dwError As Long = WSAGetLastError()
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Return S_OK
+	
+End Function
+
+Private Function NetworkCleanUp()As HRESULT
+	
+	Dim resStartup As Long = WSACleanup()
+	If resStartup <> 0 Then
+		Dim dwError As Long = WSAGetLastError()
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Return S_OK
+	
+End Function
+
 Private Sub DialogMain_OnLoad( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
 	)
 	
+	Dim hrInitNetwork As HRESULT = NetworkStartUp()
+	If FAILED(hrInitNetwork) Then
+		Const WinText2 = __TEXT("Network initialize")
+		Const WinCaption2 = __TEXT("Error")
+		
+		MessageBox(hWin, @WinText2, @WinCaption2, MB_OK Or MB_ICONINFORMATION)
+		
+		EndDialog(hWin, IDCANCEL)
+	End If
 	
 End Sub
 
@@ -31,6 +69,8 @@ Private Sub IDCANCEL_OnClick( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
 	)
+	
+	NetworkCleanUp()
 	
 	EndDialog(hWin, IDCANCEL)
 	
@@ -40,6 +80,8 @@ Private Sub DialogMain_OnUnload( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
 	)
+	
+	NetworkCleanUp()
 	
 	EndDialog(hWin, IDCANCEL)
 	
@@ -67,6 +109,8 @@ Private Function InputDataDialogProc( _
 				Case IDCANCEL
 					IDCANCEL_OnClick(pParam, hWin)
 					
+				Case IDC_BTN_BROWSE
+					
 			End Select
 			
 		Case WM_CLOSE
@@ -84,31 +128,34 @@ End Function
 
 Private Function EnableVisualStyles()As HRESULT
 	
-	Dim icc As INITCOMMONCONTROLSEX = Any
-	icc.dwSize = SizeOf(INITCOMMONCONTROLSEX)
-	icc.dwICC = ICC_ANIMATE_CLASS Or _
-		ICC_BAR_CLASSES Or _
-		ICC_COOL_CLASSES Or _
-		ICC_DATE_CLASSES Or _
-		ICC_HOTKEY_CLASS Or _
-		ICC_INTERNET_CLASSES Or _
-		ICC_LINK_CLASS Or _
-		ICC_LISTVIEW_CLASSES Or _
-		ICC_NATIVEFNTCTL_CLASS Or _
-		ICC_PAGESCROLLER_CLASS Or _
-		ICC_PROGRESS_CLASS Or _
-		ICC_STANDARD_CLASSES Or _
-		ICC_TAB_CLASSES Or _
-		ICC_TREEVIEW_CLASSES Or _
-		ICC_UPDOWN_CLASS Or _
-		ICC_USEREX_CLASSES Or _
-	ICC_WIN95_CLASSES
+	' Only for Win95
+	InitCommonControls()
 	
-	Dim res As BOOL = InitCommonControlsEx(@icc)
-	If res = 0 Then
-		Dim dwError As DWORD = GetLastError()
-		Return HRESULT_FROM_WIN32(dwError)
-	End If
+	' Dim icc As INITCOMMONCONTROLSEX = Any
+	' icc.dwSize = SizeOf(INITCOMMONCONTROLSEX)
+	' icc.dwICC = ICC_ANIMATE_CLASS Or _
+	' 	ICC_BAR_CLASSES Or _
+	' 	ICC_COOL_CLASSES Or _
+	' 	ICC_DATE_CLASSES Or _
+	' 	ICC_HOTKEY_CLASS Or _
+	' 	ICC_INTERNET_CLASSES Or _
+	' 	ICC_LINK_CLASS Or _
+	' 	ICC_LISTVIEW_CLASSES Or _
+	' 	ICC_NATIVEFNTCTL_CLASS Or _
+	' 	ICC_PAGESCROLLER_CLASS Or _
+	' 	ICC_PROGRESS_CLASS Or _
+	' 	ICC_STANDARD_CLASSES Or _
+	' 	ICC_TAB_CLASSES Or _
+	' 	ICC_TREEVIEW_CLASSES Or _
+	' 	ICC_UPDOWN_CLASS Or _
+	' 	ICC_USEREX_CLASSES Or _
+	' ICC_WIN95_CLASSES
+	
+	' Dim res As BOOL = InitCommonControlsEx(@icc)
+	' If res = 0 Then
+	' 	Dim dwError As DWORD = GetLastError()
+	' 	Return HRESULT_FROM_WIN32(dwError)
+	' End If
 	
 	Return S_OK
 	
@@ -121,14 +168,14 @@ Private Function tWinMain( _
 		ByVal iCmdShow As Long _
 	)As Integer
 	
-	Dim hWin As HWND = GetDesktopWindow()
-	
 	Scope
 		Dim hrVisualStyles As Integer = EnableVisualStyles()
 		If FAILED(hrVisualStyles) Then
 			Return 1
 		End If
 	End Scope
+	
+	Dim hWin As HWND = GetDesktopWindow()
 	
 	Dim param As HttpRestForm = Any
 	param.hInst = hInst
@@ -146,6 +193,7 @@ Private Function tWinMain( _
 			Const WinCaption2 = __TEXT("Error")
 			
 			MessageBox(hWin, @WinText2, @WinCaption2, MB_OK Or MB_ICONINFORMATION)
+			
 			Return 1
 		End If
 		
