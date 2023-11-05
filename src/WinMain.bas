@@ -1,5 +1,6 @@
 #include once "WinMain.bi"
 #include once "win\commctrl.bi"
+#include once "win\commdlg.bi"
 #include once "win\shlobj.bi"
 #include once "win\windowsx.bi"
 #include once "win\mswsock.bi"
@@ -15,10 +16,36 @@ Type ResStringBuffer
 	szText(255) As TCHAR
 End Type
 
+Type FileNameBuffer
+	szText(MAX_PATH) As TCHAR
+End Type
+
 Type MainFormParam
 	hWin As HWND
 	cFileName(MAX_PATH) As TCHAR
 End Type
+
+Type ErrorBuffer
+	szText(255) As TCHAR
+End Type
+
+Private Sub DisplayError( _
+		ByVal dwErrorCode As DWORD, _
+		ByVal Caption As LPCTSTR _
+	)
+	
+	Const FormatString = __TEXT(!"Error code %d")
+	
+	Dim buf As ErrorBuffer = Any
+	wsprintf( _
+		@buf.szText(0), _
+		@FormatString, _
+		dwErrorCode _
+	)
+	
+	MessageBox(0, @buf.szText(0), Caption, MB_OK Or MB_ICONERROR)
+	
+End Sub
 
 Private Function NetworkStartUp()As HRESULT
 	
@@ -58,7 +85,7 @@ Private Sub DialogMain_OnLoad( _
 		Const WinText2 = __TEXT("Network initialize")
 		Const WinCaption2 = __TEXT("Error")
 		
-		MessageBox(hWin, @WinText2, @WinCaption2, MB_OK Or MB_ICONINFORMATION)
+		DisplayError(hrInitNetwork, @WinText2)
 		
 		EndDialog(hWin, IDCANCEL)
 	End If
@@ -73,6 +100,68 @@ Private Sub IDCANCEL_OnClick( _
 	NetworkCleanUp()
 	
 	EndDialog(hWin, IDCANCEL)
+	
+End Sub
+
+Private Sub BrowseButton_OnClick( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND _
+	)
+	
+	Const FileFilter = __TEXT(!"All files (*)\0*\0\0")
+	Const Caption = __TEXT("Select File to send")
+	
+	Dim buf As FileNameBuffer = Any
+	buf.szText(0) = 0
+	
+	Dim fn As OPENFILENAME = Any
+	With fn
+		' HACK for win95
+		.lStructSize = SizeOf(OPENFILENAME) - SizeOf(Any Ptr) - SizeOf(DWORD) - SizeOf(DWORD)
+		.hwndOwner = hWin
+		.hInstance = this->hInst
+		.lpstrFilter = @FileFilter
+		.lpstrCustomFilter = NULL
+		.nMaxCustFilter = 0
+		.nFilterIndex = 1
+		.lpstrFile = @buf.szText(0)
+		.nMaxFile = MAX_PATH
+		.lpstrFileTitle = NULL
+		.nMaxFileTitle = 0
+		.lpstrInitialDir = NULL
+		.lpstrTitle = @Caption
+		.Flags = 0
+		.nFileOffset = 0
+		.nFileExtension = 0
+		.lpstrDefExt = NULL
+		.lCustData = 0
+		.lpfnHook = NULL
+		.lpTemplateName = NULL
+		' .lpEditInfo = NULL
+		' .lpstrPrompt = NULL
+		.pvReserved = NULL
+		.dwReserved = 0
+		.FlagsEx = 0
+	End With
+	
+	Dim resGetFile As BOOL = GetOpenFileName(@fn)
+	
+	If resGetFile = 0 Then
+		Const WinText2 = __TEXT("GetOpenFileName")
+		
+		Dim dwError As DWORD = CommDlgExtendedError()
+		If dwError Then
+			DisplayError(dwError, @WinText2)
+			
+			Exit Sub
+		End If
+	End If
+	
+	SetDlgItemText( _
+		hWin, _
+		IDC_EDT_FILE, _
+		@buf.szText(0) _
+	)
 	
 End Sub
 
@@ -110,6 +199,7 @@ Private Function InputDataDialogProc( _
 					IDCANCEL_OnClick(pParam, hWin)
 					
 				Case IDC_BTN_BROWSE
+					BrowseButton_OnClick(pParam, hWin)
 					
 			End Select
 			
@@ -188,11 +278,12 @@ Private Function tWinMain( _
 			@InputDataDialogProc, _
 			Cast(LPARAM, @param) _
 		)
+		
 		If DialogBoxParamResult = -1 Then
 			Const WinText2 = __TEXT("DialogBoxParam")
 			Const WinCaption2 = __TEXT("Error")
 			
-			MessageBox(hWin, @WinText2, @WinCaption2, MB_OK Or MB_ICONINFORMATION)
+			DisplayError(0, @WinText2)
 			
 			Return 1
 		End If
