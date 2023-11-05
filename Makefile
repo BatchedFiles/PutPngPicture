@@ -143,7 +143,7 @@ LDLIBSBEGIN+="$(LIB_DIR)\fbrt0.o"
 endif
 LDLIBS+=--start-group
 LDLIBS+=-ladvapi32 -lcrypt32 -lkernel32 -lmsvcrt
-LDLIBS+=-lole32 -loleaut32
+LDLIBS+=-lole32 -loleaut32 -lcomdlg32
 LDLIBS+=-lmswsock -lwsock32 -lws2_32
 LDLIBS+=-lshell32 -lshlwapi -lgdi32 -lgdiplus -luser32 -lcomctl32
 ifeq ($(USE_RUNTIME),TRUE)
