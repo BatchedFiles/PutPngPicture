@@ -35,8 +35,10 @@
 
 #define IDD_DLG_TASKS                10000
 #define IDC_GRP_REQUEST              10001
-#define IDC_STC_URL                  10002
-#define IDC_EDT_URL                  10003
+#define IDC_STC_SERVER               10002
+#define IDC_EDT_SERVER               10003
+#define IDC_STC_RESOURCE             10002
+#define IDC_EDT_RESOURCE             10003
 #define IDC_STC_VERB                 10004
 #define IDC_EDT_VERB                 10005
 #define IDC_STC_FILE                 10006
