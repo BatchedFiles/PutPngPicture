@@ -6,10 +6,14 @@
 #include once "win\mswsock.bi"
 #include once "Resources.RH"
 
-Const C_COLUMNS As UINT = 2
+Const WSA_NETEVENT = WM_USER + 2
 
 Type HttpRestForm
 	hInst As HINSTANCE
+	FileHandle As HANDLE
+	MapFileHandle As HANDLE
+	ClientSocket As SOCKET
+	liFileSize As LARGE_INTEGER
 End Type
 
 Type ResStringBuffer
@@ -117,15 +121,12 @@ Private Sub IDOK_OnClick( _
 		MAX_PATH _
 	)
 	If FileNameLength = 0 Then
-		Const Caption = __TEXT("File Length")
-		' Dim dwError As DWORD = GetLastError()
+		Const Caption = __TEXT("File name must be present")
 		DisplayError(hWin, 0, @Caption)
-		
 		Exit Sub
 	End If
 	
-	' Отобразить файл
-	Dim FileHandle As HANDLE = CreateFile( _
+	this->FileHandle = CreateFile( _
 		@buf.szText(0), _
 		GENERIC_READ, _
 		FILE_SHARE_READ, _
@@ -134,43 +135,42 @@ Private Sub IDOK_OnClick( _
 		0, _
 		NULL _
 	)
-	If FileHandle = INVALID_HANDLE_VALUE Then
+	If this->FileHandle = INVALID_HANDLE_VALUE Then
 		Const Caption = __TEXT("CreateFile")
 		Dim dwError As DWORD = GetLastError()
 		DisplayError(hWin, dwError, @Caption)
-		
 		Exit Sub
 	End If
 	
-	Dim liFileSize As LARGE_INTEGER = Any
-	liFileSize.HighPart = 0
-	liFileSize.LowPart = GetFileSize(FileHandle, @liFileSize.HighPart)
+	this->liFileSize.HighPart = 0
+	this->liFileSize.LowPart = GetFileSize(this->FileHandle, @this->liFileSize.HighPart)
 	Scope
 		Dim dwError As DWORD = GetLastError()
-		If liFileSize.LowPart = INVALID_FILE_SIZE Then
+		If this->liFileSize.LowPart = INVALID_FILE_SIZE Then
 			If dwError <> NO_ERROR Then
 				Const Caption = __TEXT("GetFileSize")
-				CloseHandle(FileHandle)
+				CloseHandle(this->FileHandle)
+				this->FileHandle = INVALID_HANDLE_VALUE
 				DisplayError(hWin, dwError, @Caption)
-				
 				Exit Sub
 			End If
 		End If
 	End Scope
 	
-	Dim MapFileHandle As HANDLE = CreateFileMapping( _
-		FileHandle, _
+	this->MapFileHandle = CreateFileMapping( _
+		this->FileHandle, _
 		NULL, _
 		PAGE_READONLY, _
 		0, 0, _
 		NULL _
 	)
-	If MapFileHandle = NULL Then
+	If this->MapFileHandle = NULL Then
 		Const Caption = __TEXT("CreateFileMapping")
 		Dim dwError As DWORD = GetLastError()
-		CloseHandle(FileHandle)
+		CloseHandle(this->FileHandle)
+		this->FileHandle = INVALID_HANDLE_VALUE
+		this->MapFileHandle = NULL
 		DisplayError(hWin, dwError, @Caption)
-		
 		Exit Sub
 	End If
 	
@@ -179,7 +179,16 @@ Private Sub IDOK_OnClick( _
 	' отправить данные
 	' закрыть сокет
 	
-	' EndDialog(hWin, IDCANCEL)
+End Sub
+
+Private Sub Socket_OnWSANetEvent( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND, _
+		ByVal nEvent As Integer _
+	)
+	
+	' Select Case nEvent
+	' End Select
 	
 End Sub
 
@@ -286,6 +295,11 @@ Private Function InputDataDialogProc( _
 					
 			End Select
 			
+		Case WSA_NETEVENT
+			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+			Dim nEvent As Integer = WSAGETSELECTEVENT(lParam)
+			Socket_OnWSANetEvent(pParam, hWin, nEvent)
+			
 		Case WM_CLOSE
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
 			DialogMain_OnUnload(pParam, hWin)
@@ -351,7 +365,14 @@ Private Function tWinMain( _
 	Dim hWin As HWND = GetDesktopWindow()
 	
 	Dim param As HttpRestForm = Any
-	param.hInst = hInst
+	With param
+		.hInst = hInst
+		.FileHandle = INVALID_HANDLE_VALUE
+		.MapFileHandle = NULL
+		.ClientSocket = INVALID_SOCKET
+		.liFileSize.HighPart = 0
+		.liFileSize.LowPart = 0
+	End With
 	
 	Scope
 		Dim DialogBoxParamResult As INT_PTR = DialogBoxParam( _
