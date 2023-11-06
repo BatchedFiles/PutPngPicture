@@ -195,6 +195,9 @@ Private Function InputDataDialogProc( _
 			
 			Select Case LOWORD(wParam)
 				
+				Case IDOK
+					IDOK_OnClick(pParam, hWin)
+					
 				Case IDCANCEL
 					IDCANCEL_OnClick(pParam, hWin)
 					
