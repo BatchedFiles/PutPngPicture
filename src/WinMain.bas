@@ -1,7 +1,6 @@
 #include once "WinMain.bi"
 #include once "win\commctrl.bi"
 #include once "win\commdlg.bi"
-#include once "win\shlobj.bi"
 #include once "win\windowsx.bi"
 #include once "win\mswsock.bi"
 #include once "Resources.RH"
@@ -16,17 +15,12 @@ Type HttpRestForm
 	liFileSize As LARGE_INTEGER
 End Type
 
-Type ResStringBuffer
+Type ResourceStringBuffer
 	szText(255) As TCHAR
 End Type
 
 Type FileNameBuffer
 	szText(MAX_PATH) As TCHAR
-End Type
-
-Type MainFormParam
-	hWin As HWND
-	cFileName(MAX_PATH) As TCHAR
 End Type
 
 Type ErrorBuffer
