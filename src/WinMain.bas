@@ -6,6 +6,27 @@
 #include once "Resources.RH"
 
 Const WSA_NETEVENT = WM_USER + 2
+Const SERVER_PORT = 80
+Const SERVER_ADDRESS = Str("192.168.0.15")
+
+' HACK for Win95
+#ifdef RtlMoveMemory
+#undef RtlMoveMemory
+#endif
+#ifdef RtlZeroMemory
+#undef RtlZeroMemory
+#endif
+#ifdef MoveMemory
+#undef MoveMemory
+#endif
+#ifdef ZeroMemory
+#undef ZeroMemory
+#endif
+
+Declare Sub RtlMoveMemory Alias "RtlMoveMemory"(ByVal Destination As Any Ptr, ByVal Source As Any Ptr, ByVal Length As Integer)
+Declare Sub RtlZeroMemory Alias "RtlZeroMemory"(ByVal Destination As Any Ptr, ByVal Length As Integer)
+#define MoveMemory(d, s, l) RtlMoveMemory((d), (s), (l))
+#define ZeroMemory(d, l) RtlZeroMemory((d), (l))
 
 Type HttpRestForm
 	hInst As HINSTANCE
@@ -168,10 +189,10 @@ Private Sub IDOK_OnClick( _
 		Exit Sub
 	End If
 	
-	' Открыть сокет
-	' соединиться
-	' отправить данные
-	' закрыть сокет
+	' пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	' пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	' пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	' пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	
 End Sub
 
