@@ -30,6 +30,7 @@ Type ErrorBuffer
 End Type
 
 Private Sub DisplayError( _
+		ByVal hWin As HWND, _
 		ByVal dwErrorCode As DWORD, _
 		ByVal Caption As LPCTSTR _
 	)
@@ -43,7 +44,7 @@ Private Sub DisplayError( _
 		dwErrorCode _
 	)
 	
-	MessageBox(0, @buf.szText(0), Caption, MB_OK Or MB_ICONERROR)
+	MessageBox(hWin, @buf.szText(0), Caption, MB_OK Or MB_ICONERROR)
 	
 End Sub
 
@@ -85,7 +86,7 @@ Private Sub DialogMain_OnLoad( _
 		Const WinText2 = __TEXT("Network initialize")
 		Const WinCaption2 = __TEXT("Error")
 		
-		DisplayError(hrInitNetwork, @WinText2)
+		DisplayError(hWin, hrInitNetwork, @WinText2)
 		
 		EndDialog(hWin, IDCANCEL)
 	End If
@@ -100,6 +101,85 @@ Private Sub IDCANCEL_OnClick( _
 	NetworkCleanUp()
 	
 	EndDialog(hWin, IDCANCEL)
+	
+End Sub
+
+Private Sub IDOK_OnClick( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND _
+	)
+	
+	Dim buf As FileNameBuffer = Any
+	Dim FileNameLength As UINT = GetDlgItemText( _
+		hWin, _
+		IDC_EDT_FILE, _
+		@buf.szText(0), _
+		MAX_PATH _
+	)
+	If FileNameLength = 0 Then
+		Const Caption = __TEXT("File Length")
+		' Dim dwError As DWORD = GetLastError()
+		DisplayError(hWin, 0, @Caption)
+		
+		Exit Sub
+	End If
+	
+	' Отобразить файл
+	Dim FileHandle As HANDLE = CreateFile( _
+		@buf.szText(0), _
+		GENERIC_READ, _
+		FILE_SHARE_READ, _
+		NULL, _
+		OPEN_EXISTING, _
+		0, _
+		NULL _
+	)
+	If FileHandle = INVALID_HANDLE_VALUE Then
+		Const Caption = __TEXT("CreateFile")
+		Dim dwError As DWORD = GetLastError()
+		DisplayError(hWin, dwError, @Caption)
+		
+		Exit Sub
+	End If
+	
+	Dim liFileSize As LARGE_INTEGER = Any
+	liFileSize.HighPart = 0
+	liFileSize.LowPart = GetFileSize(FileHandle, @liFileSize.HighPart)
+	Scope
+		Dim dwError As DWORD = GetLastError()
+		If liFileSize.LowPart = INVALID_FILE_SIZE Then
+			If dwError <> NO_ERROR Then
+				Const Caption = __TEXT("GetFileSize")
+				CloseHandle(FileHandle)
+				DisplayError(hWin, dwError, @Caption)
+				
+				Exit Sub
+			End If
+		End If
+	End Scope
+	
+	Dim MapFileHandle As HANDLE = CreateFileMapping( _
+		FileHandle, _
+		NULL, _
+		PAGE_READONLY, _
+		0, 0, _
+		NULL _
+	)
+	If MapFileHandle = NULL Then
+		Const Caption = __TEXT("CreateFileMapping")
+		Dim dwError As DWORD = GetLastError()
+		CloseHandle(FileHandle)
+		DisplayError(hWin, dwError, @Caption)
+		
+		Exit Sub
+	End If
+	
+	' Открыть сокет
+	' соединиться
+	' отправить данные
+	' закрыть сокет
+	
+	' EndDialog(hWin, IDCANCEL)
 	
 End Sub
 
@@ -151,7 +231,7 @@ Private Sub BrowseButton_OnClick( _
 		
 		Dim dwError As DWORD = CommDlgExtendedError()
 		If dwError Then
-			DisplayError(dwError, @WinText2)
+			DisplayError(hWin, dwError, @WinText2)
 			
 			Exit Sub
 		End If
@@ -286,7 +366,7 @@ Private Function tWinMain( _
 			Const WinText2 = __TEXT("DialogBoxParam")
 			Const WinCaption2 = __TEXT("Error")
 			Dim dwError As DWORD = GetLastError()
-			DisplayError(dwError, @WinText2)
+			DisplayError(hWin, dwError, @WinText2)
 			
 			Return 1
 		End If
