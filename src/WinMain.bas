@@ -67,6 +67,11 @@ Type ErrorBuffer
 	szText(255) As TCHAR
 End Type
 
+Type ServerWithPort
+	ServerName As TCHAR Ptr
+	Port As Integer
+End Type
+
 Private Sub HttpRestFormCleanUp( _
 		ByVal this As HttpRestForm Ptr _
 	)
@@ -126,6 +131,72 @@ Private Sub EnableDialogItem( _
 	
 	Dim hwndOk As HWND = GetDlgItem(hWin, Id)
 	EnableWindow(hwndOk, True)
+	
+End Sub
+
+Private Function StringToInteger( _
+		ByVal pBuffer As TCHAR Ptr _
+	)As Integer
+	
+	Dim Number As Integer = 0
+	Dim i As Integer = Any
+	Dim nuSign As UInteger = Any
+	
+	If pBuffer[0] = Asc("-") Then
+		nuSign = -1
+		i = 1
+	Else
+		nuSign = 0
+		i = 0
+	End If
+	
+	Do While pBuffer[i] >= &h30 AndAlso pBuffer[i] <= &h39
+		Dim Digit As Integer = pBuffer[i] And &h0F
+		Number = Number + Digit
+		Number = Number * 10
+		i += 1
+	Loop
+	
+	Number = Number \ 10
+	
+	If nuSign Then
+		Return -1 * Number
+	End If
+	
+	Return Number
+	
+End Function
+
+Private Sub DivideServerPort( _
+		ByVal psp As ServerWithPort Ptr, _
+		ByVal pszText As TCHAR Ptr, _
+		ByVal Length As Integer _
+	)
+	
+	psp->ServerName = pszText
+	
+	Dim pszPort As TCHAR Ptr = NULL
+	
+	For i As Integer = 0 To Length - 1
+		Dim Ch As Integer = pszText[i]
+		If Ch = Asc(":") Then
+			pszText[i] = 0
+			Dim nNext As Integer = i + 1
+			pszPort = @pszText[nNext]
+			Exit For
+		End If
+	Next
+	
+	If pszPort Then
+		Dim PortLength As Long = lstrlen(pszPort)
+		If PortLength Then
+			psp->Port = StringToInteger(pszPort)
+		Else
+			psp->Port = 80
+		End If
+	Else
+		psp->Port = 80
+	End If
 	
 End Sub
 
@@ -192,19 +263,23 @@ Private Sub IDOK_OnClick( _
 	
 	' Get Parameters from Dialog
 	Scope
-		Dim bufServerName As FileNameBuffer = Any
-		GetDlgItemText( _
+		Dim bufServerPortName As FileNameBuffer = Any
+		Dim ServerPortNameLength As Long = GetDlgItemText( _
 			hWin, _
 			IDC_EDT_SERVER, _
-			@bufServerName.szText(0), _
+			@bufServerPortName.szText(0), _
 			MAX_PATH _
 		)
 		
-		' сервер + порт
-		Const SERVER_ADDRESS = Str("192.168.0.15")
-		this->CRequest.ServerAddress = gethostbyname(@bufServerName.szText(0))
-		' this->CRequest.ServerAddress = gethostbyname(@SERVER_ADDRESS)
-		this->CRequest.ServerPort = 80
+		Dim sp As ServerWithPort = Any
+		DivideServerPort( _
+			@sp, _
+			@bufServerPortName.szText(0), _
+			ServerPortNameLength _
+		)
+		
+		this->CRequest.ServerAddress = gethostbyname(sp.ServerName)
+		this->CRequest.ServerPort = sp.Port
 		
 		If this->CRequest.ServerAddress = NULL Then
 			Const Caption = __TEXT("Get Host by Name")
@@ -220,13 +295,13 @@ Private Sub IDOK_OnClick( _
 		' 4. %s Миме.
 		' 5. %s Host.
 		
-		' PUT /filenape.png HTTP/1.1
+		' PUT {/filenape.png} HTTP/1.1
 		' Accept: */*
-		' Authorization: Basic Base64Auth
+		' Authorization: Basic {Base64Auth}
 		' Connection: Close
-		' Content-Length: 123456
-		' Content-Type: application/binary
-		' Host: 192.168.0.15
+		' Content-Length: {123456}
+		' Content-Type: {application/binary}
+		' Host: {192.168.0.15}
 		' User-Agent: RestClient
 	End Scope
 	
@@ -582,6 +657,8 @@ Private Function tWinMain( _
 		.liFileSize.HighPart = 0
 		.liFileSize.LowPart = 0
 	End With
+	
+	ZeroMemory(@param.CRequest, SizeOf(ClientRequest))
 	
 	Scope
 		Dim DialogBoxParamResult As INT_PTR = DialogBoxParam( _
