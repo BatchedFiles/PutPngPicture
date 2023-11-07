@@ -67,6 +67,27 @@ Type ErrorBuffer
 	szText(255) As TCHAR
 End Type
 
+Private Sub HttpRestFormCleanUp( _
+		ByVal this As HttpRestForm Ptr _
+	)
+	
+	If this->ClientSocket <> INVALID_SOCKET Then
+		closesocket(this->ClientSocket)
+		this->ClientSocket = INVALID_SOCKET
+	End If
+	
+	If this->MapFileHandle Then
+		CloseHandle(this->MapFileHandle)
+		this->MapFileHandle = NULL
+	End If
+	
+	If this->FileHandle <> INVALID_HANDLE_VALUE Then
+		CloseHandle(this->FileHandle)
+		this->FileHandle = INVALID_HANDLE_VALUE
+	End If
+				
+End Sub
+
 Private Sub DisplayError( _
 		ByVal hWin As HWND, _
 		ByVal dwErrorCode As DWORD, _
@@ -188,9 +209,7 @@ Private Sub IDOK_OnClick( _
 		If this->CRequest.ServerAddress = NULL Then
 			Const Caption = __TEXT("Get Host by Name")
 			Dim dwError As Long = WSAGetLastError()
-			this->ClientSocket = INVALID_SOCKET
-			this->MapFileHandle = NULL
-			this->FileHandle = INVALID_HANDLE_VALUE
+			HttpRestFormCleanUp(this)
 			DisplayError(hWin, dwError, @Caption)
 			Exit Sub
 		End If
@@ -238,6 +257,7 @@ Private Sub IDOK_OnClick( _
 		If this->FileHandle = INVALID_HANDLE_VALUE Then
 			Const Caption = __TEXT("CreateFile")
 			Dim dwError As DWORD = GetLastError()
+			HttpRestFormCleanUp(this)
 			DisplayError(hWin, dwError, @Caption)
 			Exit Sub
 		End If
@@ -252,8 +272,7 @@ Private Sub IDOK_OnClick( _
 			If this->liFileSize.LowPart = INVALID_FILE_SIZE Then
 				If dwError <> NO_ERROR Then
 					Const Caption = __TEXT("GetFileSize")
-					CloseHandle(this->FileHandle)
-					this->FileHandle = INVALID_HANDLE_VALUE
+					HttpRestFormCleanUp(this)
 					DisplayError(hWin, dwError, @Caption)
 					Exit Sub
 				End If
@@ -263,8 +282,7 @@ Private Sub IDOK_OnClick( _
 		If this->liFileSize.LowPart = 0 Then
 			If this->liFileSize.HighPart = 0 Then
 				Const Caption = __TEXT("FileSize must be greater then zero")
-				CloseHandle(this->FileHandle)
-				this->FileHandle = INVALID_HANDLE_VALUE
+				HttpRestFormCleanUp(this)
 				DisplayError(hWin, 0, @Caption)
 				Exit Sub
 			End If
@@ -280,9 +298,7 @@ Private Sub IDOK_OnClick( _
 		If this->MapFileHandle = NULL Then
 			Const Caption = __TEXT("CreateFileMapping")
 			Dim dwError As DWORD = GetLastError()
-			CloseHandle(this->FileHandle)
-			this->FileHandle = INVALID_HANDLE_VALUE
-			this->MapFileHandle = NULL
+			HttpRestFormCleanUp(this)
 			DisplayError(hWin, dwError, @Caption)
 			Exit Sub
 		End If
@@ -294,10 +310,7 @@ Private Sub IDOK_OnClick( _
 		If this->ClientSocket = INVALID_SOCKET Then
 			Const Caption = __TEXT("Create Socket")
 			Dim dwError As Long = WSAGetLastError()
-			CloseHandle(this->MapFileHandle)
-			CloseHandle(this->FileHandle)
-			this->MapFileHandle = NULL
-			this->FileHandle = INVALID_HANDLE_VALUE
+			HttpRestFormCleanUp(this)
 			DisplayError(hWin, dwError, @Caption)
 			Exit Sub
 		End If
@@ -345,12 +358,7 @@ Private Sub IDOK_OnClick( _
 			Dim dwError As Long = WSAGetLastError()
 			If dwError <> WSAEWOULDBLOCK Then
 				Const Caption = __TEXT("Connect to Server")
-				closesocket(this->ClientSocket)
-				CloseHandle(this->MapFileHandle)
-				CloseHandle(this->FileHandle)
-				this->ClientSocket = INVALID_SOCKET
-				this->MapFileHandle = NULL
-				this->FileHandle = INVALID_HANDLE_VALUE
+				HttpRestFormCleanUp(this)
 				DisplayError(hWin, dwError, @Caption)
 				Exit Sub
 			End If
@@ -373,14 +381,8 @@ Private Sub Socket_OnWSANetEvent( _
 		Case FD_CONNECT
 			If nError Then
 				' CleanUp
-				closesocket(this->ClientSocket)
-				CloseHandle(this->MapFileHandle)
-				CloseHandle(this->FileHandle)
-				this->ClientSocket = INVALID_SOCKET
-				this->MapFileHandle = NULL
-				this->FileHandle = INVALID_HANDLE_VALUE
-				
 				Const Caption = __TEXT("End of connect to Server")
+				HttpRestFormCleanUp(this)
 				DisplayError(hWin, nError, @Caption)
 				
 				EnableDialogItem(hWin, IDOK)
