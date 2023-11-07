@@ -53,6 +53,7 @@ Type HttpRestForm
 	ClientSocket As SOCKET
 	liFileSize As LARGE_INTEGER
 	CRequest As ClientRequest
+	hHeap As HANDLE
 End Type
 
 Type ResourceStringBuffer
@@ -90,7 +91,19 @@ Private Sub HttpRestFormCleanUp( _
 		CloseHandle(this->FileHandle)
 		this->FileHandle = INVALID_HANDLE_VALUE
 	End If
-				
+	
+	If this->CRequest.RequestLine Then
+		HeapFree(this->hHeap, 0, this->CRequest.RequestLine)
+		this->CRequest.RequestLine = NULL
+	End If
+	
+	For i As Integer = 0 To RequestHeadersLength - 1
+		If this->CRequest.Headers(i) Then
+			HeapFree(this->hHeap, 0, this->CRequest.Headers(i))
+			this->CRequest.Headers(i) = NULL
+		End If
+	Next
+	
 End Sub
 
 Private Sub DisplayError( _
@@ -263,23 +276,202 @@ Private Sub IDOK_OnClick( _
 	
 	' Get Parameters from Dialog
 	Scope
-		Dim bufServerPortName As FileNameBuffer = Any
-		Dim ServerPortNameLength As Long = GetDlgItemText( _
-			hWin, _
-			IDC_EDT_SERVER, _
-			@bufServerPortName.szText(0), _
-			MAX_PATH _
-		)
+		' 1. %s Имя файла URL.
+		' 2. %s Авторизация.
+		' 3. %d Длина файла.
+		' 4. %s Миме.
+		' 5. %s Host.
 		
-		Dim sp As ServerWithPort = Any
-		DivideServerPort( _
-			@sp, _
-			@bufServerPortName.szText(0), _
-			ServerPortNameLength _
-		)
+		' [x] PUT {/filenape.png} HTTP/1.1
+		' [x] Accept: */*
+		' [ ] Authorization: Basic {Base64Auth}
+		' [x] Connection: Close
+		' [x] Content-Length: {123456}
+		' [x] Content-Type: {application/binary}
+		' [x] Host: {192.168.0.15}
+		' [x] User-Agent: RestClient
+			
+		Scope
+			Const FormatString = __TEXT(!"%s %s HTTP/1.1")
+			
+			Dim bufVerb As FileNameBuffer = Any
+			Dim VerbLength As Long = GetDlgItemText( _
+				hWin, _
+				IDC_EDT_VERB, _
+				@bufVerb.szText(0), _
+				MAX_PATH _
+			)
+			
+			Dim bufUrlParh As FileNameBuffer = Any
+			Dim UrlParhLength As Long = GetDlgItemText( _
+				hWin, _
+				IDC_EDT_RESOURCE, _
+				@bufUrlParh.szText(0), _
+				MAX_PATH _
+			)
+			
+			If VerbLength = 0 OrElse UrlParhLength = 0 Then
+				Const Caption = __TEXT("Method and Path must be present")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			Dim bufRequestLine As FileNameBuffer = Any
+			Dim Length As Long = wsprintf( _
+				@bufRequestLine.szText(0), _
+				@FormatString, _
+				@bufVerb.szText(0), _
+				@bufUrlParh.szText(0) _
+			)
+			
+			Dim cbBytesUrlParh As Integer = (Length + 1) * SizeOf(TCHAR)
+			this->CRequest.RequestLine = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbBytesUrlParh _
+			)
+			If this->CRequest.RequestLine = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.RequestLine, _
+				@bufRequestLine.szText(0) _
+			)
+		End Scope
 		
-		this->CRequest.ServerAddress = gethostbyname(sp.ServerName)
-		this->CRequest.ServerPort = sp.Port
+		Scope
+			Dim bufContentType As FileNameBuffer = Any
+			Dim ContentTypeLength As Long = GetDlgItemText( _
+				hWin, _
+				IDC_EDT_TYPE, _
+				@bufContentType.szText(0), _
+				MAX_PATH _
+			)
+			
+			Dim cbBytesContentType As Integer = (ContentTypeLength + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderContentType) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbBytesContentType _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderContentType) = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderContentType), _
+				@bufContentType.szText(0) _
+			)
+		End Scope
+		
+		Scope
+			Dim bufServerPortName As FileNameBuffer = Any
+			Dim ServerPortNameLength As Long = GetDlgItemText( _
+				hWin, _
+				IDC_EDT_SERVER, _
+				@bufServerPortName.szText(0), _
+				MAX_PATH _
+			)
+			
+			Dim cbBytesHeaderHost As Integer = (ServerPortNameLength + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderHost) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbBytesHeaderHost _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderHost) = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderHost), _
+				@bufServerPortName.szText(0) _
+			)
+			
+			Dim sp As ServerWithPort = Any
+			DivideServerPort( _
+				@sp, _
+				@bufServerPortName.szText(0), _
+				ServerPortNameLength _
+			)
+			
+			this->CRequest.ServerPort = sp.Port
+			this->CRequest.ServerAddress = gethostbyname(sp.ServerName)
+		End Scope
+		
+		Scope
+			Const UserAgent = __TEXT("RestClient")
+			Dim cbBytesUserAgent As Integer = (Len(UserAgent) + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbBytesUserAgent _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderUserAgent), _
+				@UserAgent _
+			)
+		End Scope
+		
+		Scope
+			Const CloseString = __TEXT("Close")
+			Dim cbCloseString As Integer = (Len(CloseString) + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderConnection) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbCloseString _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderConnection) = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderConnection), _
+				@CloseString _
+			)
+		End Scope
+		
+		Scope
+			Const AcceptString = __TEXT("*/*")
+			Dim cbAcceptString As Integer = (Len(AcceptString) + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderAccept) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbAcceptString _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderAccept) = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderAccept), _
+				@AcceptString _
+			)
+		End Scope
 		
 		If this->CRequest.ServerAddress = NULL Then
 			Const Caption = __TEXT("Get Host by Name")
@@ -289,20 +481,6 @@ Private Sub IDOK_OnClick( _
 			Exit Sub
 		End If
 		
-		' 1. %s Имя файла URL.
-		' 2. %s Авторизация.
-		' 3. %d Длина файла.
-		' 4. %s Миме.
-		' 5. %s Host.
-		
-		' PUT {/filenape.png} HTTP/1.1
-		' Accept: */*
-		' Authorization: Basic {Base64Auth}
-		' Connection: Close
-		' Content-Length: {123456}
-		' Content-Type: {application/binary}
-		' Host: {192.168.0.15}
-		' User-Agent: RestClient
 	End Scope
 	
 	' Open File
@@ -362,6 +540,35 @@ Private Sub IDOK_OnClick( _
 				Exit Sub
 			End If
 		End If
+		
+		Scope
+			Const FormatString = __TEXT(!"%d")
+			
+			Dim buf As ErrorBuffer = Any
+			Dim Length As Long = wsprintf( _
+				@buf.szText(0), _
+				@FormatString, _
+				this->liFileSize.LowPart _
+			)
+			
+			Dim cbContentLength As Integer = (Length + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderContentLength) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbContentLength _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderContentLength) = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderContentLength), _
+				@buf.szText(0) _
+			)
+		End Scope
 		
 		this->MapFileHandle = CreateFileMapping( _
 			this->FileHandle, _
@@ -656,6 +863,7 @@ Private Function tWinMain( _
 		.ClientSocket = INVALID_SOCKET
 		.liFileSize.HighPart = 0
 		.liFileSize.LowPart = 0
+		.hHeap = GetProcessHeap()
 	End With
 	
 	ZeroMemory(@param.CRequest, SizeOf(ClientRequest))
