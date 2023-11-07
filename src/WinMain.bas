@@ -175,7 +175,7 @@ Private Sub HttpRestFormToString( _
 	)
 	this->CRequest.AllHeadersLength += Length
 	
-	For i As Integer = 0 To RequestHeadersLength - 1
+	For i As Integer = 0 To RequestHeadersLength - 2
 		Dim HeaderValue As TCHAR Ptr = this->CRequest.Headers(i)
 		
 		If HeaderValue Then
@@ -192,6 +192,24 @@ Private Sub HttpRestFormToString( _
 			this->CRequest.AllHeadersLength += Length2
 		End If
 	Next
+	
+	Scope
+		Dim HeaderValue As TCHAR Ptr = this->CRequest.Headers(RequestHeaders.HeaderUserAgent)
+		
+		If HeaderValue Then
+			Const FormatString3 = __TEXT(!"%s: %s\r\n\r\n")
+			
+			Dim HeaderName As TCHAR Ptr = HeaderNameToString(RequestHeaders.HeaderUserAgent)
+			
+			Dim Length3 As Long = wsprintf( _
+				@this->CRequest.AllHeaders[this->CRequest.AllHeadersLength], _
+				@FormatString3, _
+				HeaderName, _
+				HeaderValue _
+			)
+			this->CRequest.AllHeadersLength += Length3
+		End If
+	End Scope
 	
 	' Truncate bloat memory
 	Dim pMem As Any Ptr = HeapReAlloc( _
