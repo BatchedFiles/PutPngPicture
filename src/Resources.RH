@@ -50,9 +50,12 @@
 #define IDC_EDT_USER                 10014
 #define IDC_STC_PASSWORD             10015
 #define IDC_EDT_PASSWORD             10016
-
 #define IDC_GRP_RESPONSE             10020
 #define IDC_STC_RESPONSE             10021
 #define IDC_EDT_RESPONSE             10022
+
+#define IDD_DLG_PROGRESS             20000
+#define IDC_STC_PROGRESS             20001
+#define IDC_PRB_PROGRESS             20002
 
 #endif
