@@ -5,7 +5,15 @@
 #include once "win\mswsock.bi"
 #include once "Resources.RH"
 
-Const WSA_NETEVENT = WM_USER + 2
+Const NETEVENT_NOTICE = WM_USER + 2
+
+Enum NetEventKind
+	Connect
+	SendHeaders
+	SendBody
+	ReadRequest
+	Done
+End Enum
 
 ' HACK for Win95
 #ifdef RtlMoveMemory
@@ -53,8 +61,10 @@ Type HttpRestForm
 	MapFileHandle As HANDLE
 	ClientSocket As SOCKET
 	liFileSize As LARGE_INTEGER
-	CRequest As ClientRequest
 	hHeap As HANDLE
+	hEvent As HANDLE
+	hWin As HWND
+	CRequest As ClientRequest
 End Type
 
 Type ResourceStringBuffer
@@ -68,44 +78,6 @@ End Type
 Type ErrorBuffer
 	szText(255) As TCHAR
 End Type
-
-Private Sub HttpRestFormCleanUp( _
-		ByVal this As HttpRestForm Ptr _
-	)
-	
-	If this->ClientSocket <> INVALID_SOCKET Then
-		closesocket(this->ClientSocket)
-		this->ClientSocket = INVALID_SOCKET
-	End If
-	
-	If this->MapFileHandle Then
-		CloseHandle(this->MapFileHandle)
-		this->MapFileHandle = NULL
-	End If
-	
-	If this->FileHandle <> INVALID_HANDLE_VALUE Then
-		CloseHandle(this->FileHandle)
-		this->FileHandle = INVALID_HANDLE_VALUE
-	End If
-	
-	If this->CRequest.RequestLine Then
-		HeapFree(this->hHeap, 0, this->CRequest.RequestLine)
-		this->CRequest.RequestLine = NULL
-	End If
-	
-	If this->CRequest.AllHeaders Then
-		HeapFree(this->hHeap, 0, this->CRequest.AllHeaders)
-		this->CRequest.AllHeaders = NULL
-	End If
-	
-	For i As Integer = 0 To RequestHeadersLength - 1
-		If this->CRequest.Headers(i) Then
-			HeapFree(this->hHeap, 0, this->CRequest.Headers(i))
-			this->CRequest.Headers(i) = NULL
-		End If
-	Next
-	
-End Sub
 
 Private Function HeaderNameToString( _
 		ByVal Index As RequestHeaders _
@@ -222,6 +194,128 @@ Private Sub HttpRestFormToString( _
 	If pMem Then
 		this->CRequest.AllHeaders = pMem
 	End If
+	
+End Sub
+
+Private Function WorkerThread( _
+		ByVal lpParam As LPVOID _
+	)As DWORD
+	
+	Dim this As HttpRestForm Ptr = lpParam
+	
+	Do
+		Dim resWait As DWORD = WaitForSingleObject( _
+			this->hEvent, _
+			INFINITE _
+		)
+		
+		Select Case resWait
+			
+			Case WAIT_OBJECT_0
+				ResetEvent(this->hEvent)
+				
+				' Connect to Server
+				Scope
+					Dim DestinationIpEndPoint As SOCKADDR_IN = Any
+					ZeroMemory(@DestinationIpEndPoint, SizeOf(SOCKADDR_IN))
+					
+					DestinationIpEndPoint.sin_family = AF_INET
+					Dim ShortPort As UShort = CUShort(this->CRequest.ServerPort)
+					DestinationIpEndPoint.sin_port = htons(ShortPort)
+					
+					MoveMemory( _
+						@DestinationIpEndPoint.sin_addr, _
+						this->CRequest.ServerAddress->h_addr, _
+						this->CRequest.ServerAddress->h_length _
+					)
+					
+					Dim psaddr As SOCKADDR Ptr = CPtr(SOCKADDR Ptr, @DestinationIpEndPoint)
+					Dim Size As Integer = SizeOf(SOCKADDR_IN)
+					
+					Dim resConnect As Long = connect(this->ClientSocket, psaddr, Size)
+					If resConnect = SOCKET_ERROR Then
+						Dim dwError As Long = WSAGetLastError()
+						PostMessage( _
+							this->hWin, _
+							NETEVENT_NOTICE, _
+							NetEventKind.Connect, _
+							dwError _
+						)
+						Continue Do
+					End If
+				End Scope
+				
+				Dim resSend As Long = send( _
+					this->ClientSocket, _
+					this->CRequest.AllHeaders, _
+					this->CRequest.AllHeadersLength, _
+					0 _
+				)
+				If resSend = SOCKET_ERROR Then
+					Dim dwError As Long = WSAGetLastError()
+					PostMessage( _
+						this->hWin, _
+						NETEVENT_NOTICE, _
+						NetEventKind.SendHeaders, _
+						dwError _
+					)
+					Continue Do
+				End If
+				
+				PostMessage( _
+					this->hWin, _
+					NETEVENT_NOTICE, _
+					NetEventKind.Done, _
+					0 _
+				)
+				
+			Case Else
+				Exit Do
+				
+		End Select
+		
+	Loop
+	
+	Return 0
+	
+End Function
+
+Private Sub HttpRestFormCleanUp( _
+		ByVal this As HttpRestForm Ptr _
+	)
+	
+	If this->ClientSocket <> INVALID_SOCKET Then
+		shutdown(this->ClientSocket, SD_BOTH)
+		closesocket(this->ClientSocket)
+		this->ClientSocket = INVALID_SOCKET
+	End If
+	
+	If this->MapFileHandle Then
+		CloseHandle(this->MapFileHandle)
+		this->MapFileHandle = NULL
+	End If
+	
+	If this->FileHandle <> INVALID_HANDLE_VALUE Then
+		CloseHandle(this->FileHandle)
+		this->FileHandle = INVALID_HANDLE_VALUE
+	End If
+	
+	If this->CRequest.RequestLine Then
+		HeapFree(this->hHeap, 0, this->CRequest.RequestLine)
+		this->CRequest.RequestLine = NULL
+	End If
+	
+	If this->CRequest.AllHeaders Then
+		HeapFree(this->hHeap, 0, this->CRequest.AllHeaders)
+		this->CRequest.AllHeaders = NULL
+	End If
+	
+	For i As Integer = 0 To RequestHeadersLength - 1
+		If this->CRequest.Headers(i) Then
+			HeapFree(this->hHeap, 0, this->CRequest.Headers(i))
+			this->CRequest.Headers(i) = NULL
+		End If
+	Next
 	
 End Sub
 
@@ -360,6 +454,123 @@ Private Function NetworkCleanUp()As HRESULT
 	
 End Function
 
+Private Sub Socket_OnWSANetEvent( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND, _
+		ByVal nEvent As Long, _
+		ByVal nError As Long _
+	)
+	
+	Select Case nEvent
+		
+		Case NetEventKind.Connect
+			If nError Then
+				Const Caption = __TEXT("Connect to Server")
+				' HttpRestFormCleanUp(this)
+				DisplayError(hWin, nError, @Caption)
+			End If
+			
+		Case NetEventKind.SendHeaders
+			If nError Then
+				Const Caption = __TEXT("Send Headers")
+				' HttpRestFormCleanUp(this)
+				DisplayError(hWin, nError, @Caption)
+			End If
+			
+		Case NetEventKind.SendBody
+			If nError Then
+				Const Caption = __TEXT("Send Body")
+				' HttpRestFormCleanUp(this)
+				DisplayError(hWin, nError, @Caption)
+			End If
+			
+		Case NetEventKind.ReadRequest
+			If nError Then
+				Const Caption = __TEXT("ReadRequest")
+				' HttpRestFormCleanUp(this)
+				DisplayError(hWin, nError, @Caption)
+			End If
+			
+		Case NetEventKind.Done
+			Const Caption = __TEXT("Done")
+			' HttpRestFormCleanUp(this)
+			DisplayError(hWin, nError, @Caption)
+			
+	End Select
+	
+End Sub
+
+Private Sub IDCANCEL2_OnClick( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND _
+	)
+	
+	EndDialog(hWin, IDCANCEL)
+	
+End Sub
+
+Private Sub DialogProgress_OnLoad( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND _
+	)
+	
+	' SetEvent(this->hEvent)
+	this->hWin = hWin
+	
+End Sub
+
+Private Sub DialogProgress_OnUnload( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND _
+	)
+	
+	EndDialog(hWin, IDCANCEL)
+	
+End Sub
+
+Private Function ProgressDialogProc( _
+		ByVal hWin As HWND, _
+		ByVal uMsg As UINT, _
+		ByVal wParam As WPARAM, _
+		ByVal lParam As LPARAM _
+	)As INT_PTR
+	
+	Select Case uMsg
+		
+		Case WM_INITDIALOG
+			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, lParam)
+			DialogProgress_OnLoad(pParam, hWin)
+			SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pParam))
+			
+		Case WM_COMMAND
+			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+			
+			Select Case LOWORD(wParam)
+				
+				Case IDCANCEL
+					IDCANCEL2_OnClick(pParam, hWin)
+					
+			End Select
+			
+		Case NETEVENT_NOTICE
+			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+			Dim nEvent As Long = wParam
+			Dim nError As Long = CLng(lParam)
+			Socket_OnWSANetEvent(pParam, hWin, nEvent, nError)
+			
+		Case WM_CLOSE
+			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+			DialogProgress_OnUnload(pParam, hWin)
+			
+		Case Else
+			Return FALSE
+			
+	End Select
+	
+	Return TRUE
+	
+End Function
+
 Private Sub DialogMain_OnLoad( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
@@ -374,6 +585,8 @@ Private Sub DialogMain_OnLoad( _
 		
 		EndDialog(hWin, IDCANCEL)
 	End If
+	
+	this->hWin = hWin
 	
 End Sub
 
@@ -707,99 +920,44 @@ Private Sub IDOK_OnClick( _
 			DisplayError(hWin, dwError, @Caption)
 			Exit Sub
 		End If
+	End Scope
+	
+	Scope
+		HttpRestFormToString(this)
 		
-		Dim resSelect As Long = WSAAsyncSelect( _
-			this->ClientSocket, _
-			hWin, _
-			WSA_NETEVENT, _
-			FD_READ Or FD_WRITE Or FD_CLOSE Or FD_CONNECT _
-		)
-		If resSelect = SOCKET_ERROR Then
-			Const Caption = __TEXT("WSAAsyncSelect")
-			Dim dwError As Long = WSAGetLastError()
-			closesocket(this->ClientSocket)
-			CloseHandle(this->MapFileHandle)
-			CloseHandle(this->FileHandle)
-			this->ClientSocket = INVALID_SOCKET
-			this->MapFileHandle = NULL
-			this->FileHandle = INVALID_HANDLE_VALUE
-			DisplayError(hWin, dwError, @Caption)
+		If this->CRequest.AllHeaders = NULL Then
+			Const Caption = __TEXT("Out of Memory")
+			HttpRestFormCleanUp(this)
+			DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
 			Exit Sub
 		End If
 	End Scope
 	
-	' Connect to Server
 	Scope
-		Dim DestinationIpEndPoint As SOCKADDR_IN = Any
-		ZeroMemory(@DestinationIpEndPoint, SizeOf(SOCKADDR_IN))
-		
-		DestinationIpEndPoint.sin_family = AF_INET
-		Dim ShortPort As UShort = CUShort(this->CRequest.ServerPort)
-		DestinationIpEndPoint.sin_port = htons(ShortPort)
-		
-		MoveMemory( _
-			@DestinationIpEndPoint.sin_addr, _
-			this->CRequest.ServerAddress->h_addr, _
-			this->CRequest.ServerAddress->h_length _
+		Dim DialogBoxParamResult As INT_PTR = DialogBoxParam( _
+			this->hInst, _
+			MAKEINTRESOURCE(IDD_DLG_PROGRESS), _
+			hWin, _
+			@ProgressDialogProc, _
+			Cast(LPARAM, this) _
 		)
 		
-		Dim psaddr As SOCKADDR Ptr = CPtr(SOCKADDR Ptr, @DestinationIpEndPoint)
-		Dim Size As Integer = SizeOf(SOCKADDR_IN)
-		
-		Dim resConnect As Long = connect(this->ClientSocket, psaddr, Size)
-		If resConnect = SOCKET_ERROR Then
-			Dim dwError As Long = WSAGetLastError()
-			If dwError <> WSAEWOULDBLOCK Then
-				Const Caption = __TEXT("Connect to Server")
-				HttpRestFormCleanUp(this)
-				DisplayError(hWin, dwError, @Caption)
-				Exit Sub
-			End If
-		End If
-	End Scope
-	
-	DisableDialogItem(hWin, IDOK)
-	
-End Sub
-
-Private Sub Socket_OnWSANetEvent( _
-		ByVal this As HttpRestForm Ptr, _
-		ByVal hWin As HWND, _
-		ByVal nEvent As Long, _
-		ByVal nError As Long _
-	)
-	
-	Select Case nEvent
-		
-		Case FD_CONNECT
-			If nError Then
-				' CleanUp
-				Const Caption = __TEXT("End of connect to Server")
-				HttpRestFormCleanUp(this)
-				DisplayError(hWin, nError, @Caption)
+		Select Case DialogBoxParamResult
+			
+			Case IDOK
+				' Display response headers + body
 				
-				EnableDialogItem(hWin, IDOK)
-				Exit Sub
-			End If
+			Case IDCANCEL
+				' Cancel send receive data
+				
+			Case Else
+				Const WinText2 = __TEXT("DialogBoxParam")
+				Const WinCaption2 = __TEXT("Error")
+				Dim dwError As DWORD = GetLastError()
+				DisplayError(hWin, dwError, @WinText2)
 			
-			HttpRestFormToString(this)
-			
-			If this->CRequest.AllHeaders = NULL Then
-				Const Caption = __TEXT("Not enough memory")
-				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
-				Exit Sub
-			End If
-			
-		Case FD_READ
-			
-		Case FD_WRITE
-			' отправить данные
-			' закрыть сокет
-			
-		Case FD_CLOSE
-			
-	End Select
+		End Select
+	End Scope
 	
 End Sub
 
@@ -906,11 +1064,11 @@ Private Function InputDataDialogProc( _
 					
 			End Select
 			
-		Case WSA_NETEVENT
-			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-			Dim nEvent As Long = WSAGETSELECTEVENT(lParam)
-			Dim nError As Long = WSAGETSELECTERROR(lParam)
-			Socket_OnWSANetEvent(pParam, hWin, nEvent, nError)
+		' Case NETEVENT_NOTICE
+		' 	Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+		' 	Dim nEvent As Long = wParam
+		' 	Dim nError As Long = CLng(lParam)
+		' 	Socket_OnWSANetEvent(pParam, hWin, nEvent, nError)
 			
 		Case WM_CLOSE
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
@@ -985,9 +1143,30 @@ Private Function tWinMain( _
 		.liFileSize.HighPart = 0
 		.liFileSize.LowPart = 0
 		.hHeap = GetProcessHeap()
+		.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL)
 	End With
 	
 	ZeroMemory(@param.CRequest, SizeOf(ClientRequest))
+	
+	Scope
+		Dim ThreadId As DWORD = Any
+		Dim hThread As HANDLE = CreateThread( _
+			NULL, _
+			0, _
+			@WorkerThread, _
+			@param, _
+			0, _
+			@ThreadId _
+		)
+		If hThread = NULL Then
+			Const Caption = __TEXT("Create Thread")
+			Dim dwError As DWORD = GetLastError()
+			DisplayError(hWin, dwError, @Caption)
+			Return 1
+		End If
+		
+		CloseHandle(hThread)
+	End Scope
 	
 	Scope
 		Dim DialogBoxParamResult As INT_PTR = DialogBoxParam( _
@@ -998,10 +1177,13 @@ Private Function tWinMain( _
 			Cast(LPARAM, @param) _
 		)
 		
+		Dim dwError As DWORD = GetLastError()
+		
+		CloseHandle(param.hEvent)
+		
 		If DialogBoxParamResult = -1 Then
 			Const WinText2 = __TEXT("DialogBoxParam")
 			Const WinCaption2 = __TEXT("Error")
-			Dim dwError As DWORD = GetLastError()
 			DisplayError(hWin, dwError, @WinText2)
 			
 			Return 1
