@@ -6,8 +6,6 @@
 #include once "Resources.RH"
 
 Const WSA_NETEVENT = WM_USER + 2
-Const SERVER_PORT = 80
-Const SERVER_ADDRESS = Str("192.168.0.15")
 
 ' HACK for Win95
 #ifdef RtlMoveMemory
@@ -28,12 +26,33 @@ Declare Sub RtlZeroMemory Alias "RtlZeroMemory"(ByVal Destination As Any Ptr, By
 #define MoveMemory(d, s, l) RtlMoveMemory((d), (s), (l))
 #define ZeroMemory(d, l) RtlZeroMemory((d), (l))
 
+Enum RequestHeaders
+	HeaderAccept
+	HeaderAuthorization
+	HeaderConnection
+	HeaderContentLength
+	HeaderContentType
+	HeaderHost
+	HeaderUserAgent
+End Enum
+
+Const RequestHeadersLength = 7
+
+Type ClientRequest
+	RequestLine As TCHAR Ptr
+	ServerAddress As HOSTENT Ptr
+	ServerPort As Integer
+	Padding As Integer
+	Headers(RequestHeadersLength - 1) As TCHAR Ptr
+End Type
+
 Type HttpRestForm
 	hInst As HINSTANCE
 	FileHandle As HANDLE
 	MapFileHandle As HANDLE
 	ClientSocket As SOCKET
 	liFileSize As LARGE_INTEGER
+	CRequest As ClientRequest
 End Type
 
 Type ResourceStringBuffer
@@ -64,6 +83,28 @@ Private Sub DisplayError( _
 	)
 	
 	MessageBox(hWin, @buf.szText(0), Caption, MB_OK Or MB_ICONERROR)
+	
+End Sub
+
+Private Sub DisableDialogItem( _
+		ByVal hWin As HWND, _
+		ByVal Id As UINT _
+	)
+	
+	SendMessage(hWin, WM_NEXTDLGCTL, 0, 0)
+	
+	Dim hwndOk As HWND = GetDlgItem(hWin, Id)
+	EnableWindow(hwndOk, False)
+	
+End Sub
+
+Private Sub EnableDialogItem( _
+		ByVal hWin As HWND, _
+		ByVal Id As UINT _
+	)
+	
+	Dim hwndOk As HWND = GetDlgItem(hWin, Id)
+	EnableWindow(hwndOk, True)
 	
 End Sub
 
@@ -128,43 +169,187 @@ Private Sub IDOK_OnClick( _
 		ByVal hWin As HWND _
 	)
 	
-	Dim buf As FileNameBuffer = Any
-	Dim FileNameLength As UINT = GetDlgItemText( _
-		hWin, _
-		IDC_EDT_FILE, _
-		@buf.szText(0), _
-		MAX_PATH _
-	)
-	If FileNameLength = 0 Then
-		Const Caption = __TEXT("File name must be present")
-		DisplayError(hWin, 0, @Caption)
-		Exit Sub
-	End If
-	
-	this->FileHandle = CreateFile( _
-		@buf.szText(0), _
-		GENERIC_READ, _
-		FILE_SHARE_READ, _
-		NULL, _
-		OPEN_EXISTING, _
-		0, _
-		NULL _
-	)
-	If this->FileHandle = INVALID_HANDLE_VALUE Then
-		Const Caption = __TEXT("CreateFile")
-		Dim dwError As DWORD = GetLastError()
-		DisplayError(hWin, dwError, @Caption)
-		Exit Sub
-	End If
-	
-	this->liFileSize.HighPart = 0
-	this->liFileSize.LowPart = GetFileSize(this->FileHandle, @this->liFileSize.HighPart)
+	' Get Parameters from Dialog
 	Scope
-		Dim dwError As DWORD = GetLastError()
-		If this->liFileSize.LowPart = INVALID_FILE_SIZE Then
-			If dwError <> NO_ERROR Then
-				Const Caption = __TEXT("GetFileSize")
+		Dim bufServerName As FileNameBuffer = Any
+		GetDlgItemText( _
+			hWin, _
+			IDC_EDT_SERVER, _
+			@bufServerName.szText(0), _
+			MAX_PATH _
+		)
+		
+		' сервер + порт
+		Const SERVER_ADDRESS = Str("192.168.0.15")
+		this->CRequest.ServerAddress = gethostbyname(@bufServerName.szText(0))
+		' this->CRequest.ServerAddress = gethostbyname(@SERVER_ADDRESS)
+		this->CRequest.ServerPort = 80
+		
+		If this->CRequest.ServerAddress = NULL Then
+			Const Caption = __TEXT("Get Host by Name")
+			Dim dwError As Long = WSAGetLastError()
+			this->ClientSocket = INVALID_SOCKET
+			this->MapFileHandle = NULL
+			this->FileHandle = INVALID_HANDLE_VALUE
+			DisplayError(hWin, dwError, @Caption)
+			Exit Sub
+		End If
+		
+		' 1. %s Имя файла URL.
+		' 2. %s Авторизация.
+		' 3. %d Длина файла.
+		' 4. %s Миме.
+		' 5. %s Host.
+		
+		' PUT /filenape.png HTTP/1.1
+		' Accept: */*
+		' Authorization: Basic Base64Auth
+		' Connection: Close
+		' Content-Length: 123456
+		' Content-Type: application/binary
+		' Host: 192.168.0.15
+		' User-Agent: RestClient
+	End Scope
+	
+	' Open File
+	Scope
+		Dim bufFileName As FileNameBuffer = Any
+		Dim FileNameLength As UINT = GetDlgItemText( _
+			hWin, _
+			IDC_EDT_FILE, _
+			@bufFileName.szText(0), _
+			MAX_PATH _
+		)
+		If FileNameLength = 0 Then
+			Const Caption = __TEXT("File name must be present")
+			DisplayError(hWin, 0, @Caption)
+			Exit Sub
+		End If
+		
+		this->FileHandle = CreateFile( _
+			@bufFileName.szText(0), _
+			GENERIC_READ, _
+			FILE_SHARE_READ, _
+			NULL, _
+			OPEN_EXISTING, _
+			FILE_ATTRIBUTE_NORMAL, _
+			NULL _
+		)
+		If this->FileHandle = INVALID_HANDLE_VALUE Then
+			Const Caption = __TEXT("CreateFile")
+			Dim dwError As DWORD = GetLastError()
+			DisplayError(hWin, dwError, @Caption)
+			Exit Sub
+		End If
+	End Scope
+	
+	' Create File Mapping Object
+	Scope
+		this->liFileSize.HighPart = 0
+		this->liFileSize.LowPart = GetFileSize(this->FileHandle, @this->liFileSize.HighPart)
+		Scope
+			Dim dwError As DWORD = GetLastError()
+			If this->liFileSize.LowPart = INVALID_FILE_SIZE Then
+				If dwError <> NO_ERROR Then
+					Const Caption = __TEXT("GetFileSize")
+					CloseHandle(this->FileHandle)
+					this->FileHandle = INVALID_HANDLE_VALUE
+					DisplayError(hWin, dwError, @Caption)
+					Exit Sub
+				End If
+			End If
+		End Scope
+		
+		If this->liFileSize.LowPart = 0 Then
+			If this->liFileSize.HighPart = 0 Then
+				Const Caption = __TEXT("FileSize must be greater then zero")
 				CloseHandle(this->FileHandle)
+				this->FileHandle = INVALID_HANDLE_VALUE
+				DisplayError(hWin, 0, @Caption)
+				Exit Sub
+			End If
+		End If
+		
+		this->MapFileHandle = CreateFileMapping( _
+			this->FileHandle, _
+			NULL, _
+			PAGE_READONLY, _
+			0, 0, _
+			NULL _
+		)
+		If this->MapFileHandle = NULL Then
+			Const Caption = __TEXT("CreateFileMapping")
+			Dim dwError As DWORD = GetLastError()
+			CloseHandle(this->FileHandle)
+			this->FileHandle = INVALID_HANDLE_VALUE
+			this->MapFileHandle = NULL
+			DisplayError(hWin, dwError, @Caption)
+			Exit Sub
+		End If
+	End Scope
+	
+	' Create Socket
+	Scope
+		this->ClientSocket = socket_(AF_INET, SOCK_STREAM, IPPROTO_TCP)
+		If this->ClientSocket = INVALID_SOCKET Then
+			Const Caption = __TEXT("Create Socket")
+			Dim dwError As Long = WSAGetLastError()
+			CloseHandle(this->MapFileHandle)
+			CloseHandle(this->FileHandle)
+			this->MapFileHandle = NULL
+			this->FileHandle = INVALID_HANDLE_VALUE
+			DisplayError(hWin, dwError, @Caption)
+			Exit Sub
+		End If
+		
+		Dim resSelect As Long = WSAAsyncSelect( _
+			this->ClientSocket, _
+			hWin, _
+			WSA_NETEVENT, _
+			FD_READ Or FD_WRITE Or FD_CLOSE Or FD_CONNECT _
+		)
+		If resSelect = SOCKET_ERROR Then
+			Const Caption = __TEXT("WSAAsyncSelect")
+			Dim dwError As Long = WSAGetLastError()
+			closesocket(this->ClientSocket)
+			CloseHandle(this->MapFileHandle)
+			CloseHandle(this->FileHandle)
+			this->ClientSocket = INVALID_SOCKET
+			this->MapFileHandle = NULL
+			this->FileHandle = INVALID_HANDLE_VALUE
+			DisplayError(hWin, dwError, @Caption)
+			Exit Sub
+		End If
+	End Scope
+	
+	' Connect to Server
+	Scope
+		Dim DestinationIpEndPoint As SOCKADDR_IN = Any
+		ZeroMemory(@DestinationIpEndPoint, SizeOf(SOCKADDR_IN))
+		
+		DestinationIpEndPoint.sin_family = AF_INET
+		Dim ShortPort As UShort = CUShort(this->CRequest.ServerPort)
+		DestinationIpEndPoint.sin_port = htons(ShortPort)
+		
+		MoveMemory( _
+			@DestinationIpEndPoint.sin_addr, _
+			this->CRequest.ServerAddress->h_addr, _
+			this->CRequest.ServerAddress->h_length _
+		)
+		
+		Dim psaddr As SOCKADDR Ptr = CPtr(SOCKADDR Ptr, @DestinationIpEndPoint)
+		Dim Size As Integer = SizeOf(SOCKADDR_IN)
+		
+		Dim resConnect As Long = connect(this->ClientSocket, psaddr, Size)
+		If resConnect = SOCKET_ERROR Then
+			Dim dwError As Long = WSAGetLastError()
+			If dwError <> WSAEWOULDBLOCK Then
+				Const Caption = __TEXT("Connect to Server")
+				closesocket(this->ClientSocket)
+				CloseHandle(this->MapFileHandle)
+				CloseHandle(this->FileHandle)
+				this->ClientSocket = INVALID_SOCKET
+				this->MapFileHandle = NULL
 				this->FileHandle = INVALID_HANDLE_VALUE
 				DisplayError(hWin, dwError, @Caption)
 				Exit Sub
@@ -172,38 +357,44 @@ Private Sub IDOK_OnClick( _
 		End If
 	End Scope
 	
-	this->MapFileHandle = CreateFileMapping( _
-		this->FileHandle, _
-		NULL, _
-		PAGE_READONLY, _
-		0, 0, _
-		NULL _
-	)
-	If this->MapFileHandle = NULL Then
-		Const Caption = __TEXT("CreateFileMapping")
-		Dim dwError As DWORD = GetLastError()
-		CloseHandle(this->FileHandle)
-		this->FileHandle = INVALID_HANDLE_VALUE
-		this->MapFileHandle = NULL
-		DisplayError(hWin, dwError, @Caption)
-		Exit Sub
-	End If
-	
-	' пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
-	' пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	' пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
-	' пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	DisableDialogItem(hWin, IDOK)
 	
 End Sub
 
 Private Sub Socket_OnWSANetEvent( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND, _
-		ByVal nEvent As Integer _
+		ByVal nEvent As Long, _
+		ByVal nError As Long _
 	)
 	
-	' Select Case nEvent
-	' End Select
+	Select Case nEvent
+		
+		Case FD_CONNECT
+			If nError Then
+				' CleanUp
+				closesocket(this->ClientSocket)
+				CloseHandle(this->MapFileHandle)
+				CloseHandle(this->FileHandle)
+				this->ClientSocket = INVALID_SOCKET
+				this->MapFileHandle = NULL
+				this->FileHandle = INVALID_HANDLE_VALUE
+				
+				Const Caption = __TEXT("End of connect to Server")
+				DisplayError(hWin, nError, @Caption)
+				
+				EnableDialogItem(hWin, IDOK)
+			End If
+			
+		Case FD_READ
+			
+		Case FD_WRITE
+			' отправить данные
+			' закрыть сокет
+			
+		Case FD_CLOSE
+			
+	End Select
 	
 End Sub
 
@@ -312,8 +503,9 @@ Private Function InputDataDialogProc( _
 			
 		Case WSA_NETEVENT
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-			Dim nEvent As Integer = WSAGETSELECTEVENT(lParam)
-			Socket_OnWSANetEvent(pParam, hWin, nEvent)
+			Dim nEvent As Long = WSAGETSELECTEVENT(lParam)
+			Dim nError As Long = WSAGETSELECTERROR(lParam)
+			Socket_OnWSANetEvent(pParam, hWin, nEvent, nError)
 			
 		Case WM_CLOSE
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
