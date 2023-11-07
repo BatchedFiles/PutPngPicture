@@ -42,7 +42,8 @@ Type ClientRequest
 	RequestLine As TCHAR Ptr
 	ServerAddress As HOSTENT Ptr
 	ServerPort As Integer
-	Padding As Integer
+	AllHeaders As TCHAR Ptr
+	AllHeadersLength As Integer
 	Headers(RequestHeadersLength - 1) As TCHAR Ptr
 End Type
 
@@ -66,11 +67,6 @@ End Type
 
 Type ErrorBuffer
 	szText(255) As TCHAR
-End Type
-
-Type ServerWithPort
-	ServerName As TCHAR Ptr
-	Port As Integer
 End Type
 
 Private Sub HttpRestFormCleanUp( _
@@ -97,12 +93,117 @@ Private Sub HttpRestFormCleanUp( _
 		this->CRequest.RequestLine = NULL
 	End If
 	
+	If this->CRequest.AllHeaders Then
+		HeapFree(this->hHeap, 0, this->CRequest.AllHeaders)
+		this->CRequest.AllHeaders = NULL
+	End If
+	
 	For i As Integer = 0 To RequestHeadersLength - 1
 		If this->CRequest.Headers(i) Then
 			HeapFree(this->hHeap, 0, this->CRequest.Headers(i))
 			this->CRequest.Headers(i) = NULL
 		End If
 	Next
+	
+End Sub
+
+Private Function HeaderNameToString( _
+		ByVal Index As RequestHeaders _
+	)As TCHAR Ptr
+	
+	Select Case Index
+		
+		Case RequestHeaders.HeaderAccept
+			Const HeaderString = __TEXT("Accept")
+			Return @HeaderString
+			
+		Case RequestHeaders.HeaderAuthorization
+			Const HeaderString = __TEXT("Authorization")
+			Return @HeaderString
+			
+		Case RequestHeaders.HeaderConnection
+			Const HeaderString = __TEXT("Connection")
+			Return @HeaderString
+			
+		Case RequestHeaders.HeaderContentLength
+			Const HeaderString = __TEXT("Content-Length")
+			Return @HeaderString
+			
+		Case RequestHeaders.HeaderContentType
+			Const HeaderString = __TEXT("Content-Type")
+			Return @HeaderString
+			
+		Case RequestHeaders.HeaderHost
+			Const HeaderString = __TEXT("Host")
+			Return @HeaderString
+			
+		Case RequestHeaders.HeaderUserAgent
+			Const HeaderString = __TEXT("User-Agent")
+			Return @HeaderString
+			
+		Case Else
+			Return NULL
+			
+	End Select
+	
+End Function
+
+Private Sub HttpRestFormToString( _
+		ByVal this As HttpRestForm Ptr _
+	)
+	
+	Const PageSize As Integer = 4096
+	
+	this->CRequest.AllHeadersLength = 0
+	
+	Dim cbAllHeaders As Integer = (PageSize) * 8
+	this->CRequest.AllHeaders = HeapAlloc( _
+		this->hHeap, _
+		0, _
+		cbAllHeaders _
+	)
+	If this->CRequest.AllHeaders = NULL Then
+		Exit Sub
+	End If
+	
+	Const FormatString = __TEXT(!"%s\r\n")
+	
+	Dim Length As Long = wsprintf( _
+		@this->CRequest.AllHeaders[this->CRequest.AllHeadersLength], _
+		@FormatString, _
+		this->CRequest.RequestLine _
+	)
+	this->CRequest.AllHeadersLength += Length
+	
+	For i As Integer = 0 To RequestHeadersLength - 1
+		Dim HeaderValue As TCHAR Ptr = this->CRequest.Headers(i)
+		
+		If HeaderValue Then
+			Const FormatString2 = __TEXT(!"%s: %s\r\n")
+			
+			Dim HeaderName As TCHAR Ptr = HeaderNameToString(i)
+			
+			Dim Length2 As Long = wsprintf( _
+				@this->CRequest.AllHeaders[this->CRequest.AllHeadersLength], _
+				@FormatString2, _
+				HeaderName, _
+				HeaderValue _
+			)
+			this->CRequest.AllHeadersLength += Length2
+		End If
+	Next
+	
+	' Truncate bloat memory
+	Dim pMem As Any Ptr = HeapReAlloc( _
+		this->hHeap, _
+		0, _
+		this->CRequest.AllHeaders, _
+		this->CRequest.AllHeadersLength _
+	)
+	
+	If pMem Then
+		this->CRequest.AllHeaders = pMem
+	End If
 	
 End Sub
 
@@ -180,13 +281,10 @@ Private Function StringToInteger( _
 	
 End Function
 
-Private Sub DivideServerPort( _
-		ByVal psp As ServerWithPort Ptr, _
+Private Function DivideServerPort( _
 		ByVal pszText As TCHAR Ptr, _
 		ByVal Length As Integer _
-	)
-	
-	psp->ServerName = pszText
+	)As Integer
 	
 	Dim pszPort As TCHAR Ptr = NULL
 	
@@ -200,18 +298,21 @@ Private Sub DivideServerPort( _
 		End If
 	Next
 	
+	Const HttpPort As Integer = 80
+	
 	If pszPort Then
 		Dim PortLength As Long = lstrlen(pszPort)
 		If PortLength Then
-			psp->Port = StringToInteger(pszPort)
+			Dim Port As Integer = StringToInteger(pszPort)
+			Return Port
 		Else
-			psp->Port = 80
+			Return HttpPort
 		End If
 	Else
-		psp->Port = 80
+		Return HttpPort
 	End If
 	
-End Sub
+End Function
 
 Private Function NetworkStartUp()As HRESULT
 	
@@ -276,12 +377,6 @@ Private Sub IDOK_OnClick( _
 	
 	' Get Parameters from Dialog
 	Scope
-		' 1. %s Имя файла URL.
-		' 2. %s Авторизация.
-		' 3. %d Длина файла.
-		' 4. %s Миме.
-		' 5. %s Host.
-		
 		' [x] PUT {/filenape.png} HTTP/1.1
 		' [x] Accept: */*
 		' [ ] Authorization: Basic {Base64Auth}
@@ -399,15 +494,13 @@ Private Sub IDOK_OnClick( _
 				@bufServerPortName.szText(0) _
 			)
 			
-			Dim sp As ServerWithPort = Any
-			DivideServerPort( _
-				@sp, _
+			Dim PortNumber As Integer = DivideServerPort( _
 				@bufServerPortName.szText(0), _
 				ServerPortNameLength _
 			)
 			
-			this->CRequest.ServerPort = sp.Port
-			this->CRequest.ServerAddress = gethostbyname(sp.ServerName)
+			this->CRequest.ServerPort = PortNumber
+			this->CRequest.ServerAddress = gethostbyname(@bufServerPortName.szText(0))
 		End Scope
 		
 		Scope
@@ -668,6 +761,16 @@ Private Sub Socket_OnWSANetEvent( _
 				DisplayError(hWin, nError, @Caption)
 				
 				EnableDialogItem(hWin, IDOK)
+				Exit Sub
+			End If
+			
+			HttpRestFormToString(this)
+			
+			If this->CRequest.AllHeaders = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
 			End If
 			
 		Case FD_READ
