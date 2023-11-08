@@ -922,6 +922,7 @@ Private Sub IDOK_OnClick( _
 		End If
 	End Scope
 	
+	' Create Headers
 	Scope
 		HttpRestFormToString(this)
 		
@@ -933,6 +934,7 @@ Private Sub IDOK_OnClick( _
 		End If
 	End Scope
 	
+	' Display Progress Dialog
 	Scope
 		Dim DialogBoxParamResult As INT_PTR = DialogBoxParam( _
 			this->hInst, _
@@ -1023,6 +1025,14 @@ Private Sub BrowseButton_OnClick( _
 	
 End Sub
 
+Private Sub PasteButton_OnClick( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND _
+	)
+	
+	
+End Sub
+
 Private Sub DialogMain_OnUnload( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
@@ -1062,13 +1072,10 @@ Private Function InputDataDialogProc( _
 				Case IDC_BTN_BROWSE
 					BrowseButton_OnClick(pParam, hWin)
 					
+				Case IDC_BTN_PASTE
+					PasteButton_OnClick(pParam, hWin)
+					
 			End Select
-			
-		' Case NETEVENT_NOTICE
-		' 	Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-		' 	Dim nEvent As Long = wParam
-		' 	Dim nError As Long = CLng(lParam)
-		' 	Socket_OnWSANetEvent(pParam, hWin, nEvent, nError)
 			
 		Case WM_CLOSE
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
