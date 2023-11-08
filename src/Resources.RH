@@ -44,15 +44,16 @@
 #define IDC_STC_FILE                 10008
 #define IDC_EDT_FILE                 10009
 #define IDC_BTN_BROWSE               10010
-#define IDC_STC_TYPE                 10011
-#define IDC_EDT_TYPE                 10012
-#define IDC_STC_USER                 10013
-#define IDC_EDT_USER                 10014
-#define IDC_STC_PASSWORD             10015
-#define IDC_EDT_PASSWORD             10016
-#define IDC_GRP_RESPONSE             10020
-#define IDC_STC_RESPONSE             10021
-#define IDC_EDT_RESPONSE             10022
+#define IDC_BTN_PASTE                10011
+#define IDC_STC_TYPE                 10012
+#define IDC_EDT_TYPE                 10013
+#define IDC_STC_USER                 10014
+#define IDC_EDT_USER                 10015
+#define IDC_STC_PASSWORD             10016
+#define IDC_EDT_PASSWORD             10017
+#define IDC_GRP_RESPONSE             10028
+#define IDC_STC_RESPONSE             10029
+#define IDC_EDT_RESPONSE             10030
 
 #define IDD_DLG_PROGRESS             20000
 #define IDC_STC_PROGRESS             20001
