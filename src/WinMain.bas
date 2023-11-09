@@ -80,6 +80,75 @@ Type ErrorBuffer
 	szText(255) As TCHAR
 End Type
 
+Private Function E0(v1 As UByte)As UByte
+	Return v1 shr 2
+End Function
+
+Private Function E1(v1 As UByte, v2 As UByte)As UByte
+	Return ((v1 And 3) shl 4) + (v2 shr 4)
+End Function
+
+Private Function E2(v2 As UByte, v3 As UByte)As UByte
+	Return ((v2 And &H0F) shl 2) + (v3 shr 6)
+End Function
+
+Private Function E3(v3 As UByte)As UByte
+	Return v3 And &H3F
+End Function
+
+Const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+Private Function Encode64( _
+		ByVal sEncodedB As UByte Ptr, _
+		ByVal BytesCount As Integer, _
+		ByVal WithCrLf As Boolean, _
+		ByVal sOut As TCHAR Ptr _
+	)As Integer
+	
+	Const Base64LineWithoutCrLfLength As Integer = 19
+	
+	Dim ELM3 As Integer = BytesCount Mod 3
+	Dim k As Integer = 0
+	Dim j As Integer = 0
+	
+	For j = 0 To BytesCount - ELM3 - 1 Step 3
+		' Перенести на новую строку, если не вмещается
+		If WithCrLf Then
+			If (j Mod Base64LineWithoutCrLfLength ) = 0 AndAlso j > 0 Then
+				sOut[k + 0] = 13
+				sOut[k + 1] = 10
+				k += 2
+			End If
+		End If
+		sOut[k + 0] = (@B64 + E0(sEncodedB[j + 0]))[0]
+		sOut[k + 1] = (@B64 + E1(sEncodedB[j + 0], sEncodedB[j + 1]))[0]
+		sOut[k + 2] = (@B64 + E2(sEncodedB[j + 1], sEncodedB[j + 2]))[0]
+		sOut[k + 3] = (@B64 + E3(sEncodedB[j + 2]))[0]
+		k += 4
+	Next
+	
+	Select Case ELM3
+		Case 1
+			sOut[k + 0] = (@B64 + E0(sEncodedB[j + 0]))[0]
+			sOut[k + 1] = (@B64 + E1(sEncodedB[j + 0], sEncodedB[j + 1]))[0]
+			sOut[k + 2] = 61
+			sOut[k + 3] = 61
+			k += 4
+		Case 2
+			sOut[k + 0] = (@B64 + E0(sEncodedB[j + 0]))[0]
+			sOut[k + 1] = (@B64 + E1(sEncodedB[j + 0], sEncodedB[j + 1]))[0]
+			sOut[k + 2] = (@B64 + E2(sEncodedB[j + 1], sEncodedB[j + 2]))[0]
+			sOut[k + 3] = 61
+			k += 4
+	End Select
+	
+	' Set terminate Nul Character
+	sOut[k] = 0
+	
+	Return k
+	
+End Function
+
 Private Function HeaderNameToString( _
 		ByVal Index As RequestHeaders _
 	)As TCHAR Ptr
@@ -120,6 +189,53 @@ Private Function HeaderNameToString( _
 	End Select
 	
 End Function
+
+Private Sub RestHeadersCleanup( _
+		ByVal this As HttpRestForm Ptr _
+	)
+	
+	If this->CRequest.RequestLine Then
+		HeapFree(this->hHeap, 0, this->CRequest.RequestLine)
+		this->CRequest.RequestLine = NULL
+	End If
+	
+	For i As Integer = 0 To RequestHeadersLength - 1
+		If this->CRequest.Headers(i) Then
+			HeapFree(this->hHeap, 0, this->CRequest.Headers(i))
+			this->CRequest.Headers(i) = NULL
+		End If
+	Next
+	
+End Sub
+
+Private Sub HttpRestFormCleanUp( _
+		ByVal this As HttpRestForm Ptr _
+	)
+	
+	If this->ClientSocket <> INVALID_SOCKET Then
+		shutdown(this->ClientSocket, SD_BOTH)
+		closesocket(this->ClientSocket)
+		this->ClientSocket = INVALID_SOCKET
+	End If
+	
+	If this->MapFileHandle Then
+		CloseHandle(this->MapFileHandle)
+		this->MapFileHandle = NULL
+	End If
+	
+	If this->FileHandle <> INVALID_HANDLE_VALUE Then
+		CloseHandle(this->FileHandle)
+		this->FileHandle = INVALID_HANDLE_VALUE
+	End If
+	
+	If this->CRequest.AllHeaders Then
+		HeapFree(this->hHeap, 0, this->CRequest.AllHeaders)
+		this->CRequest.AllHeaders = NULL
+	End If
+	
+	RestHeadersCleanup(this)
+	
+End Sub
 
 Private Sub HttpRestFormToString( _
 		ByVal this As HttpRestForm Ptr _
@@ -185,6 +301,9 @@ Private Sub HttpRestFormToString( _
 	End Scope
 	
 	' Truncate bloat memory
+	
+	RestHeadersCleanup(this)
+	
 	Dim pMem As Any Ptr = HeapReAlloc( _
 		this->hHeap, _
 		0, _
@@ -280,45 +399,6 @@ Private Function WorkerThread( _
 	Return 0
 	
 End Function
-
-Private Sub HttpRestFormCleanUp( _
-		ByVal this As HttpRestForm Ptr _
-	)
-	
-	If this->ClientSocket <> INVALID_SOCKET Then
-		shutdown(this->ClientSocket, SD_BOTH)
-		closesocket(this->ClientSocket)
-		this->ClientSocket = INVALID_SOCKET
-	End If
-	
-	If this->MapFileHandle Then
-		CloseHandle(this->MapFileHandle)
-		this->MapFileHandle = NULL
-	End If
-	
-	If this->FileHandle <> INVALID_HANDLE_VALUE Then
-		CloseHandle(this->FileHandle)
-		this->FileHandle = INVALID_HANDLE_VALUE
-	End If
-	
-	If this->CRequest.RequestLine Then
-		HeapFree(this->hHeap, 0, this->CRequest.RequestLine)
-		this->CRequest.RequestLine = NULL
-	End If
-	
-	If this->CRequest.AllHeaders Then
-		HeapFree(this->hHeap, 0, this->CRequest.AllHeaders)
-		this->CRequest.AllHeaders = NULL
-	End If
-	
-	For i As Integer = 0 To RequestHeadersLength - 1
-		If this->CRequest.Headers(i) Then
-			HeapFree(this->hHeap, 0, this->CRequest.Headers(i))
-			this->CRequest.Headers(i) = NULL
-		End If
-	Next
-	
-End Sub
 
 Private Sub DisplayError( _
 		ByVal hWin As HWND, _
@@ -467,34 +547,29 @@ Private Sub Socket_OnWSANetEvent( _
 		Case NetEventKind.Connect
 			If nError Then
 				Const Caption = __TEXT("Connect to Server")
-				' HttpRestFormCleanUp(this)
 				DisplayError(hWin, nError, @Caption)
 			End If
 			
 		Case NetEventKind.SendHeaders
 			If nError Then
 				Const Caption = __TEXT("Send Headers")
-				' HttpRestFormCleanUp(this)
 				DisplayError(hWin, nError, @Caption)
 			End If
 			
 		Case NetEventKind.SendBody
 			If nError Then
 				Const Caption = __TEXT("Send Body")
-				' HttpRestFormCleanUp(this)
 				DisplayError(hWin, nError, @Caption)
 			End If
 			
 		Case NetEventKind.ReadRequest
 			If nError Then
 				Const Caption = __TEXT("ReadRequest")
-				' HttpRestFormCleanUp(this)
 				DisplayError(hWin, nError, @Caption)
 			End If
 			
 		Case NetEventKind.Done
 			Const Caption = __TEXT("Done")
-			' HttpRestFormCleanUp(this)
 			DisplayError(hWin, nError, @Caption)
 			
 	End Select
@@ -609,15 +684,7 @@ Private Sub IDOK_OnClick( _
 	
 	' Get Parameters from Dialog
 	Scope
-		' [x] PUT {/filenape.png} HTTP/1.1
-		' [x] Accept: */*
-		' [ ] Authorization: Basic {Base64Auth}
-		' [x] Connection: Close
-		' [x] Content-Length: {123456}
-		' [x] Content-Type: {application/binary}
-		' [x] Host: {192.168.0.15}
-		' [x] User-Agent: RestClient
-			
+		' Create RequestLine
 		Scope
 			Const FormatString = __TEXT(!"%s %s HTTP/1.1")
 			
@@ -671,6 +738,129 @@ Private Sub IDOK_OnClick( _
 			)
 		End Scope
 		
+		' Create Accept Header
+		Scope
+			Const AcceptString = __TEXT("*/*")
+			Dim cbAcceptString As Integer = (Len(AcceptString) + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderAccept) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbAcceptString _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderAccept) = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderAccept), _
+				@AcceptString _
+			)
+		End Scope
+		
+		' Create Authorization Header
+		Scope
+			Dim bufUserName As FileNameBuffer = Any
+			Dim UserNameLength As Long = GetDlgItemText( _
+				hWin, _
+				IDC_EDT_USER, _
+				@bufUserName.szText(0), _
+				MAX_PATH _
+			)
+			
+			If UserNameLength Then
+				Dim bufPassword As FileNameBuffer = Any
+				Dim PasswordLength As Long = GetDlgItemText( _
+					hWin, _
+					IDC_EDT_USER, _
+					@bufPassword.szText(0), _
+					MAX_PATH _
+				)
+				
+				If PasswordLength Then
+					
+					Dim bufUserPasswordBase64 As FileNameBuffer = Any
+					
+					Scope
+						Dim bufUserCommaPassword As FileNameBuffer = Any
+						
+						Const FormatString = __TEXT(!"%s:%s")
+						
+						Dim Length As Long = wsprintf( _
+							@bufUserCommaPassword.szText(0), _
+							@FormatString, _
+							@bufUserName.szText(0), _
+							@bufPassword.szText(0) _
+						)
+						
+						Encode64( _
+							@bufUserCommaPassword.szText(0), _
+							Length, _
+							False, _
+							@bufUserPasswordBase64.szText(0) _
+						)
+					End Scope
+					
+					Scope
+						Dim bufBasicUserPassword As FileNameBuffer = Any
+						
+						Const FormatString = __TEXT(!"Basic %s")
+						
+						Dim Length As Long = wsprintf( _
+							@bufBasicUserPassword.szText(0), _
+							@FormatString, _
+							@bufUserPasswordBase64.szText(0) _
+						)
+						
+						Dim cbBytesAuthorization As Integer = (Length + 1) * SizeOf(TCHAR)
+						this->CRequest.Headers(RequestHeaders.HeaderAuthorization) = HeapAlloc( _
+							this->hHeap, _
+							0, _
+							cbBytesAuthorization _
+						)
+						If this->CRequest.Headers(RequestHeaders.HeaderAuthorization) = NULL Then
+							Const Caption = __TEXT("Not enough memory")
+							HttpRestFormCleanUp(this)
+							DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+							Exit Sub
+						End If
+						
+						lstrcpy( _
+							this->CRequest.Headers(RequestHeaders.HeaderAuthorization), _
+							@bufBasicUserPassword.szText(0) _
+						)
+					End Scope
+				End If
+			End If
+		End Scope
+		
+		' Create Connection Header
+		Scope
+			Const CloseString = __TEXT("Close")
+			Dim cbCloseString As Integer = (Len(CloseString) + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderConnection) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbCloseString _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderConnection) = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderConnection), _
+				@CloseString _
+			)
+		End Scope
+		
+		' Create Content-Length Header later
+		
+		' Create Content-Type Header
 		Scope
 			Dim bufContentType As FileNameBuffer = Any
 			Dim ContentTypeLength As Long = GetDlgItemText( _
@@ -699,6 +889,29 @@ Private Sub IDOK_OnClick( _
 			)
 		End Scope
 		
+		' Create User-Agent Header
+		Scope
+			Const UserAgent = __TEXT("RestClient")
+			Dim cbBytesUserAgent As Integer = (Len(UserAgent) + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbBytesUserAgent _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = NULL Then
+				Const Caption = __TEXT("Not enough memory")
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderUserAgent), _
+				@UserAgent _
+			)
+		End Scope
+		
+		' Create Host Header
 		Scope
 			Dim bufServerPortName As FileNameBuffer = Any
 			Dim ServerPortNameLength As Long = GetDlgItemText( _
@@ -733,69 +946,6 @@ Private Sub IDOK_OnClick( _
 			
 			this->CRequest.ServerPort = PortNumber
 			this->CRequest.ServerAddress = gethostbyname(@bufServerPortName.szText(0))
-		End Scope
-		
-		Scope
-			Const UserAgent = __TEXT("RestClient")
-			Dim cbBytesUserAgent As Integer = (Len(UserAgent) + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbBytesUserAgent _
-			)
-			If this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = NULL Then
-				Const Caption = __TEXT("Not enough memory")
-				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
-				Exit Sub
-			End If
-			
-			lstrcpy( _
-				this->CRequest.Headers(RequestHeaders.HeaderUserAgent), _
-				@UserAgent _
-			)
-		End Scope
-		
-		Scope
-			Const CloseString = __TEXT("Close")
-			Dim cbCloseString As Integer = (Len(CloseString) + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderConnection) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbCloseString _
-			)
-			If this->CRequest.Headers(RequestHeaders.HeaderConnection) = NULL Then
-				Const Caption = __TEXT("Not enough memory")
-				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
-				Exit Sub
-			End If
-			
-			lstrcpy( _
-				this->CRequest.Headers(RequestHeaders.HeaderConnection), _
-				@CloseString _
-			)
-		End Scope
-		
-		Scope
-			Const AcceptString = __TEXT("*/*")
-			Dim cbAcceptString As Integer = (Len(AcceptString) + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderAccept) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbAcceptString _
-			)
-			If this->CRequest.Headers(RequestHeaders.HeaderAccept) = NULL Then
-				Const Caption = __TEXT("Not enough memory")
-				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
-				Exit Sub
-			End If
-			
-			lstrcpy( _
-				this->CRequest.Headers(RequestHeaders.HeaderAccept), _
-				@AcceptString _
-			)
 		End Scope
 		
 		If this->CRequest.ServerAddress = NULL Then
