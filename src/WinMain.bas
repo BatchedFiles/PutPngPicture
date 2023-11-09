@@ -810,34 +810,36 @@ Private Sub IDOK_OnClick( _
 	
 	' Open File
 	Scope
-		Dim bufFileName As FileNameBuffer = Any
-		Dim FileNameLength As UINT = GetDlgItemText( _
-			hWin, _
-			IDC_EDT_FILE, _
-			@bufFileName.szText(0), _
-			MAX_PATH _
-		)
-		If FileNameLength = 0 Then
-			Const Caption = __TEXT("File name must be present")
-			DisplayError(hWin, 0, @Caption)
-			Exit Sub
-		End If
-		
-		this->FileHandle = CreateFile( _
-			@bufFileName.szText(0), _
-			GENERIC_READ, _
-			FILE_SHARE_READ, _
-			NULL, _
-			OPEN_EXISTING, _
-			FILE_ATTRIBUTE_NORMAL, _
-			NULL _
-		)
 		If this->FileHandle = INVALID_HANDLE_VALUE Then
-			Const Caption = __TEXT("CreateFile")
-			Dim dwError As DWORD = GetLastError()
-			HttpRestFormCleanUp(this)
-			DisplayError(hWin, dwError, @Caption)
-			Exit Sub
+			Dim bufFileName As FileNameBuffer = Any
+			Dim FileNameLength As UINT = GetDlgItemText( _
+				hWin, _
+				IDC_EDT_FILE, _
+				@bufFileName.szText(0), _
+				MAX_PATH _
+			)
+			If FileNameLength = 0 Then
+				Const Caption = __TEXT("File name must be present")
+				DisplayError(hWin, 0, @Caption)
+				Exit Sub
+			End If
+			
+			this->FileHandle = CreateFile( _
+				@bufFileName.szText(0), _
+				GENERIC_READ, _
+				FILE_SHARE_READ, _
+				NULL, _
+				OPEN_EXISTING, _
+				FILE_ATTRIBUTE_NORMAL, _
+				NULL _
+			)
+			If this->FileHandle = INVALID_HANDLE_VALUE Then
+				Const Caption = __TEXT("CreateFile")
+				Dim dwError As DWORD = GetLastError()
+				HttpRestFormCleanUp(this)
+				DisplayError(hWin, dwError, @Caption)
+				Exit Sub
+			End If
 		End If
 	End Scope
 	
@@ -1196,7 +1198,7 @@ Private Sub PasteButton_OnClick( _
 									Dim hBitmapFile As HANDLE = CreateFile( _
 										@TempFileName.szText(0), _
 										GENERIC_READ Or GENERIC_WRITE, _
-										FILE_SHARE_READ Or FILE_SHARE_WRITE Or FILE_SHARE_DELETE, _
+										0, _
 										NULL, _
 										CREATE_ALWAYS, _
 										FILE_ATTRIBUTE_TEMPORARY Or FILE_FLAG_DELETE_ON_CLOSE, _
@@ -1233,7 +1235,6 @@ Private Sub PasteButton_OnClick( _
 										' Write Color Table
 										Scope
 											' If pBinfo->bmiHeader.biClrUsed Then
-											' 	file.write((char*)colors, sizeof(RGBQUAD)*dwNumColors)
 											' 	WriteFile(hBitmapFile, pBinfo->bmiHeader, SizeOf(BITMAPINFOHEADER), @dwWritedBytes, NULL)
 											' End If
 										End Scope
@@ -1244,7 +1245,15 @@ Private Sub PasteButton_OnClick( _
 											WriteFile(hBitmapFile, pBits, dwLength, @dwWritedBytes, NULL)
 										End Scope
 										
+										SetFilePointer( _
+											hBitmapFile, _
+											0, _
+											NULL, _
+											FILE_BEGIN _
+										)
+										
 										' CloseHandle(hBitmapFile)
+										this->FileHandle = hBitmapFile
 									End If
 								End If
 							End If
