@@ -1,6 +1,7 @@
 #include once "WinMain.bi"
 #include once "win\commctrl.bi"
 #include once "win\commdlg.bi"
+' #include once "win\wingdi.bi"
 #include once "win\windowsx.bi"
 #include once "win\mswsock.bi"
 #include once "Resources.RH"
@@ -1025,11 +1026,246 @@ Private Sub BrowseButton_OnClick( _
 	
 End Sub
 
+Private Function FillBitmapFileHeader( _
+		ByVal pbmfh As BITMAPFILEHEADER Ptr, _
+		ByVal pbih As BITMAPINFOHEADER Ptr _
+	)As DWORD
+	
+	' Convert to 24 bpp
+	
+	' pbih->biBitCount = 24
+	Dim dwBPP As DWORD = pbih->biBitCount
+	Dim dwWidth As Long = pbih->biWidth
+	Dim dwHeight As Long = Abs(pbih->biHeight)
+	Dim dwNumColors As DWORD = pbih->biClrUsed
+	
+	Const BitmapMagic = &h04D42
+	
+	Dim dwOffset As DWORD = SizeOf(BITMAPFILEHEADER) + SizeOf(BITMAPINFOHEADER) + (dwNumColors * SizeOf(RGBQUAD))
+	
+	' Magic Formula
+	Dim stride As DWORD = (((dwWidth * dwBPP) + 31) And (Not 31)) Shr 3
+	Dim dwLength As DWORD = dwHeight * stride
+	Dim biSizeImage As DWORD = dwLength + dwOffset
+	
+	pbmfh->bfType = BitmapMagic
+	pbmfh->bfSize = biSizeImage
+	pbmfh->bfReserved1 = 0
+	pbmfh->bfReserved2 = 0
+	pbmfh->bfOffBits = dwOffset
+	
+	If pbih->biSizeImage = 0 Then
+		pbih->biSizeImage = dwLength
+	End If
+	
+	Return dwLength
+	
+End Function
+
+Private Function BitmapFormatAvailable()As Boolean
+	
+	Dim resAvailable1 As BOOL = IsClipboardFormatAvailable(CF_DIB)
+	If resAvailable1 = 0 Then
+		Return False
+	End If
+	
+	Dim resAvailable2 As BOOL = IsClipboardFormatAvailable(CF_BITMAP)
+	If resAvailable2 = 0 Then
+		Return False
+	End If
+	
+	Return True
+	
+End Function
+
+Private Function FillTemporaryFileName( _
+		ByVal pFileName As TCHAR Ptr _
+	)As HRESULT
+	
+	Const TempPathPrefix = __TEXT("HttpRest")
+	
+	Dim TempDir As FileNameBuffer = Any
+	Dim resGetTempPath As DWORD = GetTempPath( _
+		MAX_PATH, _
+		@TempDir.szText(0) _
+	)
+	If resGetTempPath = 0 Then
+		Dim dwError As DWORD = GetLastError()
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Dim resGetTempFileName As UINT = GetTempFileName( _
+		@TempDir.szText(0), _
+		@TempPathPrefix, _
+		0, _
+		pFileName _
+	)
+	If resGetTempFileName = 0 Then
+		Dim dwError As DWORD = GetLastError()
+		Return HRESULT_FROM_WIN32(dwError)
+	End If
+	
+	Return S_OK
+	
+End Function
+
 Private Sub PasteButton_OnClick( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
 	)
 	
+	Dim resFormatAvailable As Boolean = BitmapFormatAvailable()
+	If resFormatAvailable = False Then
+		Exit Sub
+	End If
+	
+	Dim resOpenClip As BOOL = OpenClipboard(hWin)
+	If resOpenClip = 0 Then
+		Exit Sub
+	End If
+
+	Dim pBinfo As BITMAPINFO Ptr = GetClipboardData(CF_DIB)
+	Dim hBmp As HBITMAP = GetClipboardData(CF_BITMAP)
+	
+	If pBinfo AndAlso hBmp Then
+		Dim dwBPP As DWORD = pBinfo->bmiHeader.biBitCount
+		
+		If dwBPP = 24 OrElse dwBPP = 32 Then
+			
+			Dim hDCWindow As HDC = GetDC(hWin)
+			
+			If hDCWindow Then
+				
+				' We need two Memory DC to copy from it
+				' to prevent stretch image if DPI enabled
+				
+				Dim hdcSource As HDC = CreateCompatibleDC(hDCWindow)
+				
+				If hdcSource Then
+					
+					Dim OldBmp As HBITMAP = SelectObject(hdcSource, hBmp)
+					
+					Dim hdcDestination As HDC = CreateCompatibleDC(hDCWindow)
+					
+					If hdcDestination Then
+						
+						Dim dwWidth As Long = pBinfo->bmiHeader.biWidth
+						Dim dwHeight As Long = pBinfo->bmiHeader.biHeight
+						
+						Dim bih As BITMAPINFO = Any
+						If dwBPP = 32 Then
+							' Convert to 24 bpp
+							With bih.bmiHeader
+								.biSize          = sizeof(BITMAPINFOHEADER)
+								.biWidth         = dwWidth
+								.biHeight        = dwHeight
+								.biPlanes        = 1
+								.biBitCount      = 24
+								.biCompression   = BI_RGB
+								.biSizeImage     = 0
+								.biXPelsPerMeter = 0
+								.biYPelsPerMeter = 0
+								.biClrUsed       = 0
+								.biClrImportant  = 0
+							End With
+						Else
+							MoveMemory(@bih.bmiHeader, @pBinfo->bmiHeader, SizeOf(BITMAPINFOHEADER))
+						End If
+						
+						Dim bmfh As BITMAPFILEHEADER = Any
+						Dim dwLength As DWORD = FillBitmapFileHeader(@bmfh, @bih.bmiHeader)
+						
+						Dim pBits As LPVOID = Any
+						Dim hNewBitmap As HBITMAP = CreateDIBSection(hdcSource, @bih, DIB_RGB_COLORS, @pBits, NULL, 0)
+						
+						If hNewBitmap Then
+							
+							Dim OldMemBmpDestination As HBITMAP = SelectObject(hdcDestination, hNewBitmap)
+							
+							Dim resBlt As BOOL = BitBlt(hdcDestination, 0,0, dwWidth, Abs(dwHeight), hdcSource, 0,0, SRCCOPY)
+							
+							If resBlt Then
+								
+								Dim TempFileName As FileNameBuffer = Any
+								Dim hrGetTempFileName As HRESULT = FillTemporaryFileName( _
+									@TempFileName.szText(0) _
+								)
+								
+								If SUCCEEDED(hrGetTempFileName) Then
+									
+									Dim hBitmapFile As HANDLE = CreateFile( _
+										@TempFileName.szText(0), _
+										GENERIC_READ Or GENERIC_WRITE, _
+										FILE_SHARE_READ Or FILE_SHARE_WRITE Or FILE_SHARE_DELETE, _
+										NULL, _
+										CREATE_ALWAYS, _
+										FILE_ATTRIBUTE_TEMPORARY Or FILE_FLAG_DELETE_ON_CLOSE, _
+										NULL _
+									)
+									
+									If hBitmapFile <> INVALID_HANDLE_VALUE Then
+										
+										SetDlgItemText( _
+											hWin, _
+											IDC_EDT_FILE, _
+											@TempFileName.szText(0) _
+										)
+										
+										Const MimeBitmap = __TEXT("image/bmp")
+										SetDlgItemText( _
+											hWin, _
+											IDC_EDT_TYPE, _
+											@MimeBitmap _
+										)
+										
+											' Write File Header
+										Scope
+											Dim dwWritedBytes As DWORD = Any
+											WriteFile(hBitmapFile, @bmfh, SizeOf(BITMAPFILEHEADER), @dwWritedBytes, NULL)
+										End Scope
+										
+										' Write Info Header
+										Scope
+											Dim dwWritedBytes As DWORD = Any
+											WriteFile(hBitmapFile, @bih.bmiHeader, SizeOf(BITMAPINFOHEADER), @dwWritedBytes, NULL)
+										End Scope
+										
+										' Write Color Table
+										Scope
+											' If pBinfo->bmiHeader.biClrUsed Then
+											' 	file.write((char*)colors, sizeof(RGBQUAD)*dwNumColors)
+											' 	WriteFile(hBitmapFile, pBinfo->bmiHeader, SizeOf(BITMAPINFOHEADER), @dwWritedBytes, NULL)
+											' End If
+										End Scope
+										
+										' Write Bytes
+										Scope
+											Dim dwWritedBytes As DWORD = Any
+											WriteFile(hBitmapFile, pBits, dwLength, @dwWritedBytes, NULL)
+										End Scope
+										
+										' CloseHandle(hBitmapFile)
+									End If
+								End If
+							End If
+							
+							SelectObject(hdcDestination, OldMemBmpDestination)
+							DeleteObject(hNewBitmap)
+						End If
+
+						DeleteDC(hdcDestination)
+					End If
+					
+					SelectObject(hdcSource, OldBmp)
+					DeleteDC(hdcSource)
+				End If
+				
+				ReleaseDC(hWin, hDCWindow)
+			End If
+		End If
+	End If
+	
+	CloseClipboard()
 	
 End Sub
 
