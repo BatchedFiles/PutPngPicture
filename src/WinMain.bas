@@ -1,7 +1,6 @@
 #include once "WinMain.bi"
 #include once "win\commctrl.bi"
 #include once "win\commdlg.bi"
-' #include once "win\wingdi.bi"
 #include once "win\windowsx.bi"
 #include once "win\mswsock.bi"
 #include once "Resources.RH"
@@ -652,16 +651,6 @@ Private Sub DialogMain_OnLoad( _
 		ByVal hWin As HWND _
 	)
 	
-	Dim hrInitNetwork As HRESULT = NetworkStartUp()
-	If FAILED(hrInitNetwork) Then
-		Const WinText2 = __TEXT("Network initialize")
-		Const WinCaption2 = __TEXT("Error")
-		
-		DisplayError(hWin, hrInitNetwork, @WinText2)
-		
-		EndDialog(hWin, IDCANCEL)
-	End If
-	
 	this->hWin = hWin
 	
 End Sub
@@ -670,8 +659,6 @@ Private Sub IDCANCEL_OnClick( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
 	)
-	
-	NetworkCleanUp()
 	
 	EndDialog(hWin, IDCANCEL)
 	
@@ -1433,8 +1420,6 @@ Private Sub DialogMain_OnUnload( _
 		ByVal hWin As HWND _
 	)
 	
-	NetworkCleanUp()
-	
 	EndDialog(hWin, IDCANCEL)
 	
 End Sub
@@ -1527,73 +1512,87 @@ Private Function tWinMain( _
 		ByVal iCmdShow As Long _
 	)As Integer
 	
-	Scope
-		Dim hrVisualStyles As Integer = EnableVisualStyles()
-		If FAILED(hrVisualStyles) Then
-			Return 1
-		End If
-	End Scope
+	Dim hrVisualStyles As Integer = EnableVisualStyles()
 	
-	Dim hWin As HWND = GetDesktopWindow()
-	
-	Dim param As HttpRestForm = Any
-	With param
-		.hInst = hInst
-		.FileHandle = INVALID_HANDLE_VALUE
-		.MapFileHandle = NULL
-		.ClientSocket = INVALID_SOCKET
-		.liFileSize.HighPart = 0
-		.liFileSize.LowPart = 0
-		.hHeap = GetProcessHeap()
-		.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL)
-	End With
-	
-	ZeroMemory(@param.CRequest, SizeOf(ClientRequest))
-	
-	Scope
-		Dim ThreadId As DWORD = Any
-		Dim hThread As HANDLE = CreateThread( _
-			NULL, _
-			0, _
-			@WorkerThread, _
-			@param, _
-			0, _
-			@ThreadId _
-		)
-		If hThread = NULL Then
-			Const Caption = __TEXT("Create Thread")
-			Dim dwError As DWORD = GetLastError()
-			DisplayError(hWin, dwError, @Caption)
-			Return 1
-		End If
+	If SUCCEEDED(hrVisualStyles) Then
 		
-		CloseHandle(hThread)
-	End Scope
-	
-	Scope
-		Dim DialogBoxParamResult As INT_PTR = DialogBoxParam( _
-			hInst, _
-			MAKEINTRESOURCE(IDD_DLG_TASKS), _
-			hWin, _
-			@InputDataDialogProc, _
-			Cast(LPARAM, @param) _
+		Dim hWin As HWND = GetDesktopWindow()
+		
+		Dim ProcessHeap As HANDLE = GetProcessHeap()
+		
+		' We need allocate memory for HttpRestForm
+		' Beekause when main thread is terminated
+		' Thread stack not exists
+		Dim param As HttpRestForm Ptr = HeapAlloc( _
+			ProcessHeap, _
+			0, _
+			SizeOf(HttpRestForm) _
 		)
 		
-		Dim dwError As DWORD = GetLastError()
-		
-		CloseHandle(param.hEvent)
-		
-		If DialogBoxParamResult = -1 Then
-			Const WinText2 = __TEXT("DialogBoxParam")
-			Const WinCaption2 = __TEXT("Error")
-			DisplayError(hWin, dwError, @WinText2)
+		If param Then
 			
-			Return 1
+			Dim hrInitNetwork As HRESULT = NetworkStartUp()
+			
+			If FAILED(hrInitNetwork) Then
+				Const WinText2 = __TEXT("Network initialize")
+				Const WinCaption2 = __TEXT("Error")
+				DisplayError(hWin, hrInitNetwork, @WinText2)
+			Else
+				
+				param->hInst = hInst
+				param->FileHandle = INVALID_HANDLE_VALUE
+				param->MapFileHandle = NULL
+				param->ClientSocket = INVALID_SOCKET
+				param->liFileSize.HighPart = 0
+				param->liFileSize.LowPart = 0
+				param->hHeap = ProcessHeap
+				param->hEvent = CreateEvent(NULL, TRUE, FALSE, NULL)
+				
+				ZeroMemory(@param->CRequest, SizeOf(ClientRequest))
+				
+				Dim ThreadId As DWORD = Any
+				Dim hThread As HANDLE = CreateThread( _
+					NULL, _
+					0, _
+					@WorkerThread, _
+					param, _
+					0, _
+					@ThreadId _
+				)
+				
+				If hThread = NULL Then
+					Const Caption = __TEXT("Create Thread")
+					Dim dwError As DWORD = GetLastError()
+					DisplayError(hWin, dwError, @Caption)
+				Else
+					
+					CloseHandle(hThread)
+					
+					Dim DialogBoxParamResult As INT_PTR = DialogBoxParam( _
+						hInst, _
+						MAKEINTRESOURCE(IDD_DLG_TASKS), _
+						hWin, _
+						@InputDataDialogProc, _
+						Cast(LPARAM, param) _
+					)
+					
+					If DialogBoxParamResult = -1 Then
+						Const WinText2 = __TEXT("DialogBoxParam")
+						Const WinCaption2 = __TEXT("Error")
+						Dim dwError As DWORD = GetLastError()
+						DisplayError(hWin, dwError, @WinText2)
+					End If
+					
+				End If
+				
+				CloseHandle(param->hEvent)
+				NetworkCleanUp()
+			End If
+			
 		End If
-		
-	End Scope
+	End If
 	
-	Return 0
+	Return 1
 	
 End Function
 
