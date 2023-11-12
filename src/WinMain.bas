@@ -583,7 +583,7 @@ Private Function StringToInteger( _
 	
 End Function
 
-Private Function DivideServerPort( _
+Private Function SplitServerPort( _
 		ByVal pszText As TCHAR Ptr, _
 		ByVal Length As Integer _
 	)As Integer
@@ -1040,7 +1040,7 @@ Private Sub IDOK_OnClick( _
 				@bufServerPortName.szText(0) _
 			)
 			
-			Dim PortNumber As Integer = DivideServerPort( _
+			Dim PortNumber As Integer = SplitServerPort( _
 				@bufServerPortName.szText(0), _
 				ServerPortNameLength _
 			)
