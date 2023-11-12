@@ -1125,13 +1125,13 @@ Private Sub IDOK_OnClick( _
 		End If
 		
 		Scope
-			Const FormatString = __TEXT(!"%d")
+			Const FormatString = __TEXT(!"%ld")
 			
 			Dim buf As ErrorBuffer = Any
 			Dim Length As Long = wsprintf( _
 				@buf.szText(0), _
 				@FormatString, _
-				this->liFileSize.LowPart _
+				this->liFileSize.QuadPart _
 			)
 			
 			Dim cbContentLength As Integer = (Length + 1) * SizeOf(TCHAR)
