@@ -1218,6 +1218,12 @@ Private Sub IDOK_OnClick( _
 				DisplayError(hWin, dwError, @WinText2)
 			
 		End Select
+		
+		SetDlgItemText( _
+			hWin, _
+			IDC_EDT_FILE, _
+			NULL _
+		)
 	End Scope
 	
 End Sub
