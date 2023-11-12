@@ -316,6 +316,61 @@ Private Sub HttpRestFormToString( _
 	
 End Sub
 
+Private Function HttpRestFormSendFile( _
+		ByVal this As HttpRestForm Ptr _
+	)As HRESULT
+	
+	Const PageSize = 65536
+	
+	Dim Offset As LARGE_INTEGER = Any
+	Offset.QuadPart = 0
+	
+	Do
+		Dim Tail As LARGE_INTEGER = Any
+		Tail.QuadPart = this->liFileSize.QuadPart - Offset.QuadPart
+		
+		Dim cbBytes As DWORD = min(PageSize, Tail.QuadPart)
+		
+		If cbBytes = 0 Then
+			Exit Do
+		End If
+		
+		Dim p As UByte Ptr = MapViewOfFile( _
+			this->MapFileHandle, _
+			FILE_MAP_READ, _
+			Offset.HighPart, Offset.LowPart, _
+			cbBytes _
+		)
+		If p = NULL Then
+			Return HRESULT_FROM_WIN32(ERROR_NOT_ENOUGH_MEMORY)
+		End If
+		
+		Dim resSend As Long = send( _
+			this->ClientSocket, _
+			p, _
+			cbBytes, _
+			0 _
+		)
+		If resSend = SOCKET_ERROR Then
+			Dim dwError As Long = WSAGetLastError()
+			UnmapViewOfFile(p)
+			
+			Return HRESULT_FROM_WIN32(dwError)
+		End If
+		
+		UnmapViewOfFile(p)
+		
+		If cbBytes < PageSize Then
+			Exit Do
+		End If
+		
+		Offset.QuadPart = Offset.QuadPart + PageSize
+	Loop
+	
+	Return S_OK
+	
+End Function
+
 Private Function WorkerThread( _
 		ByVal lpParam As LPVOID _
 	)As DWORD
