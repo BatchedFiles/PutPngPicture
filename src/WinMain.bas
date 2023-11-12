@@ -618,6 +618,16 @@ Private Sub DisplayError( _
 	
 End Sub
 
+Private Sub DisplaySuccess( _
+		ByVal hWin As HWND, _
+		ByVal Caption As LPCTSTR, _
+		ByVal MsgText As LPCTSTR _
+	)
+	
+	MessageBox(hWin, MsgText, Caption, MB_OK Or MB_ICONINFORMATION)
+	
+End Sub
+
 Private Sub DisableDialogItem( _
 		ByVal hWin As HWND, _
 		ByVal Id As UINT _
@@ -798,7 +808,8 @@ Private Sub Socket_OnWSANetEvent( _
 			
 		Case NetEventKind.Done
 			Const Caption = __TEXT("Done")
-			DisplayError(hWin, 0, @Caption)
+			Const MsgText = __TEXT("Sending File done")
+			DisplaySuccess(hWin, @Caption, @MsgText)
 			EndDialog(hWin, IDOK)
 			
 	End Select
