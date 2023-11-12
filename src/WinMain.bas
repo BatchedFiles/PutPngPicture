@@ -657,29 +657,34 @@ Private Sub Socket_OnWSANetEvent( _
 			If nError Then
 				Const Caption = __TEXT("Connect to Server")
 				DisplayError(hWin, nError, @Caption)
+				EndDialog(hWin, IDCANCEL)
 			End If
 			
 		Case NetEventKind.SendHeaders
 			If nError Then
 				Const Caption = __TEXT("Send Headers")
 				DisplayError(hWin, nError, @Caption)
+				EndDialog(hWin, IDCANCEL)
 			End If
 			
 		Case NetEventKind.SendBody
 			If nError Then
 				Const Caption = __TEXT("Send Body")
 				DisplayError(hWin, nError, @Caption)
+				EndDialog(hWin, IDCANCEL)
 			End If
 			
-		Case NetEventKind.ReadRequest
+		Case NetEventKind.ReadResponse
 			If nError Then
-				Const Caption = __TEXT("ReadRequest")
+				Const Caption = __TEXT("Read Response from Server")
 				DisplayError(hWin, nError, @Caption)
+				EndDialog(hWin, IDCANCEL)
 			End If
 			
 		Case NetEventKind.Done
 			Const Caption = __TEXT("Done")
-			DisplayError(hWin, nError, @Caption)
+			DisplayError(hWin, 0, @Caption)
+			EndDialog(hWin, IDOK)
 			
 	End Select
 	
