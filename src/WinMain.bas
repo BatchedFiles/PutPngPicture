@@ -111,7 +111,7 @@ Private Function Encode64( _
 	Dim j As Integer = 0
 	
 	For j = 0 To BytesCount - ELM3 - 1 Step 3
-		' Перенести на новую строку, если не вмещается
+		' пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		If WithCrLf Then
 			If (j Mod Base64LineWithoutCrLfLength ) = 0 AndAlso j > 0 Then
 				sOut[k + 0] = 13
@@ -651,6 +651,10 @@ Private Sub DialogMain_OnLoad( _
 		ByVal hWin As HWND _
 	)
 	
+	Dim hcn As HICON = LoadIcon(this->hInst, MAKEINTRESOURCE(IDI_MAIN))
+	SendMessage(hWin, WM_SETICON, ICON_SMALL, Cast(LPARAM, hcn))
+	SendMessage(hWin, WM_SETICON, ICON_BIG, Cast(LPARAM, hcn))
+
 	this->hWin = hWin
 	
 End Sub
