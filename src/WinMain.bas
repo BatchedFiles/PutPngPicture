@@ -1363,6 +1363,12 @@ Private Sub IDOK_OnClick( _
 			IDC_EDT_FILE, _
 			NULL _
 		)
+		SetDlgItemText( _
+			hWin, _
+			IDC_EDT_RESPONSE, _
+			NULL _
+		)
+		
 	End Scope
 	
 End Sub
