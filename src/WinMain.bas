@@ -820,7 +820,7 @@ Private Sub IDOK_OnClick( _
 				Dim bufPassword As FileNameBuffer = Any
 				Dim PasswordLength As Long = GetDlgItemText( _
 					hWin, _
-					IDC_EDT_USER, _
+					IDC_EDT_PASSWORD, _
 					@bufPassword.szText(0), _
 					MAX_PATH _
 				)
