@@ -341,6 +341,16 @@ Private Function HttpRestFormSendFile( _
 	
 	Const PageSize = 65536
 	
+	Scope
+		Dim stpCount As UInteger = this->liFileSize.QuadPart \ PageSize
+		PostMessage( _
+			this->hWin, _
+			NETEVENT_NOTICE, _
+			NetEventKind.StepsCount, _
+			stpCount _
+		)
+	End Scope
+	
 	Dim Offset As LARGE_INTEGER = Any
 	Offset.QuadPart = 0
 	
@@ -378,6 +388,13 @@ Private Function HttpRestFormSendFile( _
 		End If
 		
 		UnmapViewOfFile(p)
+		
+		PostMessage( _
+			this->hWin, _
+			NETEVENT_NOTICE, _
+			NetEventKind.NextStep, _
+			ERROR_SUCCESS _
+		)
 		
 		If cbBytes < PageSize Then
 			Exit Do
@@ -685,6 +702,31 @@ Private Sub Socket_OnWSANetEvent( _
 				DisplayError(hWin, nError, @Caption)
 				EndDialog(hWin, IDCANCEL)
 			End If
+			
+		Case NetEventKind.StepsCount
+			SendDlgItemMessage( _
+				hWin, _
+				IDC_PRB_PROGRESS, _
+				PBM_SETRANGE, _
+				0, _
+				MAKELPARAM(0, nError) _
+			)
+			SendDlgItemMessage( _
+				hWin, _
+				IDC_PRB_PROGRESS, _
+				PBM_SETSTEP, _
+				1, _
+				0 _
+			)
+			
+		Case NetEventKind.NextStep
+			SendDlgItemMessage( _
+				hWin, _
+				IDC_PRB_PROGRESS, _
+				PBM_STEPIT, _
+				0, _
+				0 _
+			)
 			
 		Case NetEventKind.SendBody
 			If nError Then
