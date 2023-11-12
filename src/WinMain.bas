@@ -1338,6 +1338,15 @@ Private Sub IDOK_OnClick( _
 					this->pResponseMem _
 				)
 				
+				' Cleanup
+				HeapFree( _
+					this->hHeap, _
+					0, _
+					this->pResponseMem _
+				)
+				this->ResponseLength = 0
+				this->pResponseMem = NULL
+				
 			Case IDCANCEL
 				' Cancel send receive data
 				
