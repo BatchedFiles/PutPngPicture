@@ -12,6 +12,8 @@ Const EncodingLookupTable = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxy
 Enum NetEventKind
 	Connect
 	SendHeaders
+	StepsCount
+	NextStep
 	SendBody
 	ReadResponse
 	Done
@@ -60,13 +62,15 @@ End Type
 Type HttpRestForm
 	hInst As HINSTANCE
 	FileHandle As HANDLE
-	IsTemporaryFile As Integer
 	MapFileHandle As HANDLE
 	ClientSocket As SOCKET
 	liFileSize As LARGE_INTEGER
+	IsTemporaryFile As Integer
 	hHeap As HANDLE
 	hEvent As HANDLE
 	hWin As HWND
+	pResponseMem As ZString Ptr
+	ResponseLength As Integer
 	CRequest As ClientRequest
 End Type
 
@@ -520,6 +524,56 @@ Private Function WorkerThread( _
 				
 				' Read Response from Server
 				Scope
+					Const RESPONSE_MEM_SIZE = 65536 - 1
+					
+					this->pResponseMem = HeapAlloc( _
+						this->hHeap, _
+						0, _
+						RESPONSE_MEM_SIZE _
+					)
+					If this->pResponseMem = NULL Then
+						HttpRestFormCleanUp(this)
+						
+						PostMessage( _
+							this->hWin, _
+							NETEVENT_NOTICE, _
+							NetEventKind.ReadResponse, _
+							ERROR_NOT_ENOUGH_MEMORY _
+						)
+					End If
+					
+					this->ResponseLength = recv( _
+						this->ClientSocket, _
+						this->pResponseMem, _
+						RESPONSE_MEM_SIZE, _
+						0 _
+					)
+					If this->ResponseLength = SOCKET_ERROR Then
+						Dim dwError As Long = WSAGetLastError()
+						
+						HeapFree( _
+							this->hHeap, _
+							0, _
+							this->pResponseMem _
+						)
+						
+						this->ResponseLength = 0
+						this->pResponseMem = NULL
+						
+						HttpRestFormCleanUp(this)
+						
+						PostMessage( _
+							this->hWin, _
+							NETEVENT_NOTICE, _
+							NetEventKind.ReadResponse, _
+							dwError _
+						)
+						Continue Do
+					End If
+					
+					' Set Terminate NUL Character
+					this->pResponseMem[this->ResponseLength] = 0
+					
 				End Scope
 				
 				' Sending file done
@@ -683,8 +737,8 @@ End Function
 Private Sub Socket_OnWSANetEvent( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND, _
-		ByVal nEvent As Long, _
-		ByVal nError As Long _
+		ByVal nEvent As Integer, _
+		ByVal nError As Integer _
 	)
 	
 	Select Case nEvent
@@ -805,8 +859,8 @@ Private Function ProgressDialogProc( _
 			
 		Case NETEVENT_NOTICE
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-			Dim nEvent As Long = wParam
-			Dim nError As Long = CLng(lParam)
+			Dim nEvent As Integer = wParam
+			Dim nError As Integer = CInt(lParam)
 			Socket_OnWSANetEvent(pParam, hWin, nEvent, nError)
 			
 		Case WM_CLOSE
@@ -1267,6 +1321,11 @@ Private Sub IDOK_OnClick( _
 			
 			Case IDOK
 				' Display response headers + body
+				SetDlgItemText( _
+					hWin, _
+					IDC_EDT_RESPONSE, _
+					this->pResponseMem _
+				)
 				
 			Case IDCANCEL
 				' Cancel send receive data
