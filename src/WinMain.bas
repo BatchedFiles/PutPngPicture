@@ -409,6 +409,9 @@ Private Function WorkerThread( _
 					Dim resConnect As Long = connect(this->ClientSocket, psaddr, Size)
 					If resConnect = SOCKET_ERROR Then
 						Dim dwError As Long = WSAGetLastError()
+						
+						HttpRestFormCleanUp(this)
+						
 						PostMessage( _
 							this->hWin, _
 							NETEVENT_NOTICE, _
@@ -417,31 +420,83 @@ Private Function WorkerThread( _
 						)
 						Continue Do
 					End If
+					
+					PostMessage( _
+						this->hWin, _
+						NETEVENT_NOTICE, _
+						NetEventKind.Connect, _
+						ERROR_SUCCESS _
+					)
 				End Scope
 				
-				Dim resSend As Long = send( _
-					this->ClientSocket, _
-					this->CRequest.AllHeaders, _
-					this->CRequest.AllHeadersLength, _
-					0 _
-				)
-				If resSend = SOCKET_ERROR Then
-					Dim dwError As Long = WSAGetLastError()
+				' Send Headers
+				Scope
+					Dim resSend As Long = send( _
+						this->ClientSocket, _
+						this->CRequest.AllHeaders, _
+						this->CRequest.AllHeadersLength, _
+						0 _
+					)
+					If resSend = SOCKET_ERROR Then
+						Dim dwError As Long = WSAGetLastError()
+						
+						HttpRestFormCleanUp(this)
+						
+						PostMessage( _
+							this->hWin, _
+							NETEVENT_NOTICE, _
+							NetEventKind.SendHeaders, _
+							dwError _
+						)
+						Continue Do
+					End If
+					
 					PostMessage( _
 						this->hWin, _
 						NETEVENT_NOTICE, _
 						NetEventKind.SendHeaders, _
-						dwError _
+						ERROR_SUCCESS _
 					)
-					Continue Do
-				End If
+				End Scope
 				
-				PostMessage( _
-					this->hWin, _
-					NETEVENT_NOTICE, _
-					NetEventKind.Done, _
-					0 _
-				)
+				' Send Body
+				Scope
+					Dim hrSend As HRESULT = HttpRestFormSendFile(this)
+					If FAILED(hrSend) Then
+						HttpRestFormCleanUp(this)
+						
+						PostMessage( _
+							this->hWin, _
+							NETEVENT_NOTICE, _
+							NetEventKind.SendBody, _
+							hrSend _
+						)
+						Continue Do
+					End If
+					
+					PostMessage( _
+						this->hWin, _
+						NETEVENT_NOTICE, _
+						NetEventKind.SendBody, _
+						ERROR_SUCCESS _
+					)
+				End Scope
+				
+				' Read Response from Server
+				Scope
+				End Scope
+				
+				' Sending file done
+				Scope
+					HttpRestFormCleanUp(this)
+					
+					PostMessage( _
+						this->hWin, _
+						NETEVENT_NOTICE, _
+						NetEventKind.Done, _
+						0 _
+					)
+				End Scope
 				
 			Case Else
 				Exit Do
