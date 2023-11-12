@@ -7,11 +7,13 @@
 
 Const NETEVENT_NOTICE = WM_USER + 2
 
+Const EncodingLookupTable = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
 Enum NetEventKind
 	Connect
 	SendHeaders
 	SendBody
-	ReadRequest
+	ReadResponse
 	Done
 End Enum
 
@@ -47,17 +49,18 @@ End Enum
 Const RequestHeadersLength = 7
 
 Type ClientRequest
-	RequestLine As TCHAR Ptr
+	RequestLine As ZString Ptr
 	ServerAddress As HOSTENT Ptr
 	ServerPort As Integer
-	AllHeaders As TCHAR Ptr
+	AllHeaders As ZString Ptr
 	AllHeadersLength As Integer
-	Headers(RequestHeadersLength - 1) As TCHAR Ptr
+	Headers(RequestHeadersLength - 1) As ZString Ptr
 End Type
 
 Type HttpRestForm
 	hInst As HINSTANCE
 	FileHandle As HANDLE
+	IsTemporaryFile As Integer
 	MapFileHandle As HANDLE
 	ClientSocket As SOCKET
 	liFileSize As LARGE_INTEGER
@@ -79,66 +82,82 @@ Type ErrorBuffer
 	szText(255) As TCHAR
 End Type
 
-Private Function E0(v1 As UByte)As UByte
+Private Function E0(ByVal v1 As UByte)As UByte
 	Return v1 shr 2
 End Function
 
-Private Function E1(v1 As UByte, v2 As UByte)As UByte
+Private Function E1(ByVal v1 As UByte, ByVal v2 As UByte)As UByte
 	Return ((v1 And 3) shl 4) + (v2 shr 4)
 End Function
 
-Private Function E2(v2 As UByte, v3 As UByte)As UByte
+Private Function E2(ByVal v2 As UByte, ByVal v3 As UByte)As UByte
 	Return ((v2 And &H0F) shl 2) + (v3 shr 6)
 End Function
 
-Private Function E3(v3 As UByte)As UByte
+Private Function E3(ByVal v3 As UByte)As UByte
 	Return v3 And &H3F
 End Function
-
-Const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 Private Function Encode64( _
 		ByVal sEncodedB As UByte Ptr, _
 		ByVal BytesCount As Integer, _
-		ByVal WithCrLf As Boolean, _
 		ByVal sOut As TCHAR Ptr _
 	)As Integer
-	
-	Const Base64LineWithoutCrLfLength As Integer = 19
 	
 	Dim ELM3 As Integer = BytesCount Mod 3
 	Dim k As Integer = 0
 	Dim j As Integer = 0
 	
 	For j = 0 To BytesCount - ELM3 - 1 Step 3
-		' ��������� �� ����� ������, ���� �� ���������
-		If WithCrLf Then
-			If (j Mod Base64LineWithoutCrLfLength ) = 0 AndAlso j > 0 Then
-				sOut[k + 0] = 13
-				sOut[k + 1] = 10
-				k += 2
-			End If
-		End If
-		sOut[k + 0] = (@B64 + E0(sEncodedB[j + 0]))[0]
-		sOut[k + 1] = (@B64 + E1(sEncodedB[j + 0], sEncodedB[j + 1]))[0]
-		sOut[k + 2] = (@B64 + E2(sEncodedB[j + 1], sEncodedB[j + 2]))[0]
-		sOut[k + 3] = (@B64 + E3(sEncodedB[j + 2]))[0]
+		Dim ch0 As UByte = sEncodedB[j + 0]
+		Dim ch1 As UByte = sEncodedB[j + 1]
+		Dim ch2 As UByte = sEncodedB[j + 2]
+		
+		Dim Index0 As Integer = E0(ch0)
+		Dim Index1 As Integer = E1(ch0, ch1)
+		Dim Index2 As Integer = E2(ch1, ch2)
+		Dim Index3 As Integer = E3(ch2)
+		
+		sOut[k + 0] = (@EncodingLookupTable + Index0)[0]
+		sOut[k + 1] = (@EncodingLookupTable + Index1)[0]
+		sOut[k + 2] = (@EncodingLookupTable + Index2)[0]
+		sOut[k + 3] = (@EncodingLookupTable + Index3)[0]
+		
 		k += 4
 	Next
 	
 	Select Case ELM3
+		
 		Case 1
-			sOut[k + 0] = (@B64 + E0(sEncodedB[j + 0]))[0]
-			sOut[k + 1] = (@B64 + E1(sEncodedB[j + 0], sEncodedB[j + 1]))[0]
-			sOut[k + 2] = 61
-			sOut[k + 3] = 61
+			Dim ch0 As UByte = sEncodedB[j + 0]
+			Dim ch1 As UByte = sEncodedB[j + 1]
+			
+			Dim Index0 As Integer = E0(ch0)
+			Dim Index1 As Integer = E1(ch0, ch1)
+			
+			sOut[k + 0] = (@EncodingLookupTable + Index0)[0]
+			sOut[k + 1] = (@EncodingLookupTable + Index1)[0]
+			sOut[k + 2] = Asc("=")
+			sOut[k + 3] = Asc("=")
+			
 			k += 4
+			
 		Case 2
-			sOut[k + 0] = (@B64 + E0(sEncodedB[j + 0]))[0]
-			sOut[k + 1] = (@B64 + E1(sEncodedB[j + 0], sEncodedB[j + 1]))[0]
-			sOut[k + 2] = (@B64 + E2(sEncodedB[j + 1], sEncodedB[j + 2]))[0]
-			sOut[k + 3] = 61
+			Dim ch0 As UByte = sEncodedB[j + 0]
+			Dim ch1 As UByte = sEncodedB[j + 1]
+			Dim ch2 As UByte = sEncodedB[j + 2]
+			
+			Dim Index0 As Integer = E0(ch0)
+			Dim Index1 As Integer = E1(ch0, ch1)
+			Dim Index2 As Integer = E2(ch1, ch2)
+			
+			sOut[k + 0] = (@EncodingLookupTable + Index0)[0]
+			sOut[k + 1] = (@EncodingLookupTable + Index1)[0]
+			sOut[k + 2] = (@EncodingLookupTable + Index2)[0]
+			sOut[k + 3] = Asc("=")
+			
 			k += 4
+			
 	End Select
 	
 	' Set terminate Nul Character
@@ -704,8 +723,8 @@ Private Sub DialogProgress_OnLoad( _
 		ByVal hWin As HWND _
 	)
 	
-	' SetEvent(this->hEvent)
 	this->hWin = hWin
+	SetEvent(this->hEvent)
 	
 End Sub
 
@@ -904,7 +923,6 @@ Private Sub IDOK_OnClick( _
 						Encode64( _
 							@bufUserCommaPassword.szText(0), _
 							Length, _
-							False, _
 							@bufUserPasswordBase64.szText(0) _
 						)
 					End Scope
