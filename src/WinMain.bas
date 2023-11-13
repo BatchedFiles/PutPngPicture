@@ -3,6 +3,7 @@
 #include once "win\commdlg.bi"
 #include once "win\windowsx.bi"
 #include once "win\mswsock.bi"
+#include once "Base64.bi"
 #include once "Resources.RH"
 
 Const NETEVENT_NOTICE = WM_USER + 2

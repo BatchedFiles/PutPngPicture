@@ -159,6 +159,12 @@ ifeq ($(USE_RUNTIME),TRUE)
 LDLIBSEND+="$(LIB_DIR)\crtend.o"
 endif
 
+OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).o
+OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).o
+
+$(OBJ_DEBUG_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).c: C:$(PATH_SEP)Programming$(PATH_SEP)FreeBASIC Projects$(PATH_SEP)PutPngPicture$(PATH_SEP)src$(PATH_SEP)Base64.bas(20) error 59: Illegal specification, at parameter 3 (sOut) of Encode64() in 'ByVal sOut As TCHAR Ptr _' C:$(PATH_SEP)Programming$(PATH_SEP)FreeBASIC Projects$(PATH_SEP)PutPngPicture$(PATH_SEP)src$(PATH_SEP)Base64.bas(20) error 133: Too many errors, exiting
+$(OBJ_RELEASE_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).c: C:$(PATH_SEP)Programming$(PATH_SEP)FreeBASIC Projects$(PATH_SEP)PutPngPicture$(PATH_SEP)src$(PATH_SEP)Base64.bas(20) error 59: Illegal specification, at parameter 3 (sOut) of Encode64() in 'ByVal sOut As TCHAR Ptr _' C:$(PATH_SEP)Programming$(PATH_SEP)FreeBASIC Projects$(PATH_SEP)PutPngPicture$(PATH_SEP)src$(PATH_SEP)Base64.bas(20) error 133: Too many errors, exiting
+
 OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
 OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
 
@@ -168,8 +174,8 @@ $(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)Resource
 OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).o
 OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).o
 
-$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Resources.RH
-$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Resources.RH
+$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Base64.bi src$(PATH_SEP)Resources.RH
+$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Base64.bi src$(PATH_SEP)Resources.RH
 
 
 release: $(BIN_RELEASE_DIR)$(PATH_SEP)$(OUTPUT_FILE_NAME)
