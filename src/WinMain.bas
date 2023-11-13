@@ -8,8 +8,6 @@
 
 Const NETEVENT_NOTICE = WM_USER + 2
 
-Const EncodingLookupTable = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-
 Enum NetEventKind
 	Connect
 	SendHeaders

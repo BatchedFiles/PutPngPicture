@@ -1,3 +1,7 @@
+#include once "Base64.bi"
+
+Const EncodingLookupTable = __TEXT("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+
 Private Function E0(ByVal v1 As UByte)As UByte
 	Return v1 shr 2
 End Function
