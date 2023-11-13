@@ -1378,6 +1378,55 @@ Private Sub BrowseButton_OnClick( _
 		@buf.szText(0) _
 	)
 	
+	If fn.nFileExtension Then
+		Dim ExtensionWithDotOffset As Integer = fn.nFileExtension - 1
+		Dim pExt As TCHAR Ptr = @buf.szText(ExtensionWithDotOffset)
+		Dim Length As Long = lstrlen(pExt)
+		
+		If Length Then
+			Dim hRegistryKey As HKEY = Any
+			Dim resOpen As LSTATUS = RegOpenKeyEx( _
+				HKEY_CLASSES_ROOT, _
+				pExt, _
+				0, _
+				KEY_READ, _
+				@hRegistryKey _
+			)
+			
+			If resOpen = ERROR_SUCCESS Then
+				Const ContentTypeString = __TEXT("Content Type")
+				Dim ValueType As DWORD = Any
+				Dim bufRegValue As FileNameBuffer = Any
+				Dim cbBytes As DWORD = ((UBound(bufRegValue.szText) - LBound(bufRegValue.szText) + 1) - 1) * SizeOf(TCHAR)
+				Dim resQuery As LSTATUS = RegQueryValueEx( _
+					hRegistryKey, _
+					@ContentTypeString, _
+					0, _
+					@ValueType, _
+					@bufRegValue.szText(0), _
+					@cbBytes _
+				)
+				
+				If resQuery = ERROR_SUCCESS Then
+					If ValueType = REG_SZ Then
+						If cbBytes Then
+							Dim ValueLength As Integer = (cbBytes \ SizeOf(TCHAR)) - 1
+							bufRegValue.szText(ValueLength) = 0
+							
+							SetDlgItemText( _
+								hWin, _
+								IDC_EDT_TYPE, _
+								@bufRegValue.szText(0) _
+							)
+						End If
+					End If
+				End If
+				
+				RegCloseKey(hRegistryKey)
+			End If
+		End If
+	End If
+	
 End Sub
 
 Private Function FillBitmapFileHeader( _
