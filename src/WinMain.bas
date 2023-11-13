@@ -259,6 +259,23 @@ Private Sub HttpRestFormCleanUp( _
 	
 End Sub
 
+Private Function idiv64( _
+		ByVal Divisible As LongInt, _
+		ByVal Divisor As LongInt _
+	) As LongInt
+	
+	Dim Partial As LongInt = 0
+	Dim tmpDivisible As LongInt = Divisible
+	
+	Do While tmpDivisible >= Divisor
+		tmpDivisible -= Divisor
+		Partial += 1
+	Loop
+	
+	Return Partial
+	
+End Function
+
 Private Sub HttpRestFormToString( _
 		ByVal this As HttpRestForm Ptr _
 	)
@@ -343,10 +360,29 @@ Private Function HttpRestFormSendFile( _
 		ByVal this As HttpRestForm Ptr _
 	)As HRESULT
 	
-	Const PageSize = 65536
+	Dim PieceSize As LARGE_INTEGER = Any
 	
 	Scope
-		Dim stpCount As UInteger = this->liFileSize.QuadPart \ PageSize
+		Dim SmallPiecesCount As LARGE_INTEGER = Any
+		SmallPiecesCount.QuadPart = idiv64(this->liFileSize.QuadPart, 65536)
+		
+		If SmallPiecesCount.QuadPart = 0 Then
+			SmallPiecesCount.QuadPart = 1
+		End If
+		
+		Dim LargePiecesCount As LARGE_INTEGER = Any
+		LargePiecesCount.QuadPart = idiv64(SmallPiecesCount.QuadPart, 65536)
+		
+		If LargePiecesCount.QuadPart = 0 Then
+			LargePiecesCount.QuadPart = 1
+		End If
+		
+		PieceSize.QuadPart = LargePiecesCount.QuadPart * 65536
+	End Scope
+	
+	Scope
+		Dim stpCount As UInteger = idiv64(this->liFileSize.QuadPart, PieceSize.QuadPart)
+		
 		PostMessage( _
 			this->hWin, _
 			NETEVENT_NOTICE, _
@@ -362,7 +398,7 @@ Private Function HttpRestFormSendFile( _
 		Dim Tail As LARGE_INTEGER = Any
 		Tail.QuadPart = this->liFileSize.QuadPart - Offset.QuadPart
 		
-		Dim cbBytes As DWORD = min(PageSize, Tail.QuadPart)
+		Dim cbBytes As DWORD = min(PieceSize.QuadPart, Tail.QuadPart)
 		
 		If cbBytes = 0 Then
 			Exit Do
@@ -400,11 +436,11 @@ Private Function HttpRestFormSendFile( _
 			ERROR_SUCCESS _
 		)
 		
-		If cbBytes < PageSize Then
+		If cbBytes < PieceSize.QuadPart Then
 			Exit Do
 		End If
 		
-		Offset.QuadPart = Offset.QuadPart + PageSize
+		Offset.QuadPart = Offset.QuadPart + PieceSize.QuadPart
 	Loop
 	
 	Return S_OK
