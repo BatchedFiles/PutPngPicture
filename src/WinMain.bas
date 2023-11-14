@@ -555,16 +555,37 @@ Private Sub DisplayError( _
 		ByVal Caption As LPCTSTR _
 	)
 	
-	Const FormatString = __TEXT(!"Error code %d")
+	Const FormatString = __TEXT(!"Error code: %d\r\n")
 	
 	Dim buf As ErrorBuffer = Any
-	wsprintf( _
+	Dim BufLen As Integer = wsprintf( _
 		@buf.szText(0), _
 		@FormatString, _
 		dwErrorCode _
 	)
 	
-	MessageBox(hWin, @buf.szText(0), Caption, MB_OK Or MB_ICONERROR)
+	If BufLen Then
+		Dim wBuffer As ErrorBuffer = Any
+		Dim BufLen2 As Integer = (UBound(buf.szText) - LBound(buf.szText) + 1) - 1 - BufLen
+		Dim CharsCount As DWORD = FormatMessage( _
+			FORMAT_MESSAGE_FROM_SYSTEM Or FORMAT_MESSAGE_MAX_WIDTH_MASK, _
+			NULL, _
+			dwErrorCode, _
+			0, _
+			@buf.szText(BufLen), _
+			BufLen2, _
+			NULL _
+		)
+		
+		If CharsCount Then
+			MessageBox( _
+				hWin, _
+				@buf.szText(0), _
+				Caption, _
+				MB_OK Or MB_ICONERROR _
+			)
+		End If
+	End If
 	
 End Sub
 
@@ -1151,7 +1172,7 @@ Private Sub IDOK_OnClick( _
 			)
 			If FileNameLength = 0 Then
 				Const Caption = __TEXT("File name must be present")
-				DisplayError(hWin, 0, @Caption)
+				DisplayError(hWin, ERROR_FILE_NOT_FOUND, @Caption)
 				Exit Sub
 			End If
 			
@@ -1192,9 +1213,9 @@ Private Sub IDOK_OnClick( _
 		
 		If this->liFileSize.LowPart = 0 Then
 			If this->liFileSize.HighPart = 0 Then
-				Const Caption = __TEXT("FileSize must be greater then zero")
+				Const Caption = __TEXT("File Size must be greater then Zero")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, 0, @Caption)
+				DisplayError(hWin, ERROR_OPEN_FAILED, @Caption)
 				Exit Sub
 			End If
 		End If
