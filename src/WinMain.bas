@@ -1817,149 +1817,140 @@ Private Sub PasteButton_OnClick( _
 	Dim hBmp As HBITMAP = GetClipboardData(CF_BITMAP)
 	
 	If pBinfo AndAlso hBmp Then
-		Dim dwBPP As DWORD = pBinfo->bmiHeader.biBitCount
+		Dim hDCWindow As HDC = GetDC(hWin)
 		
-		If dwBPP = 24 OrElse dwBPP = 32 Then
+		If hDCWindow Then
 			
-			Dim hDCWindow As HDC = GetDC(hWin)
+			' We need two Memory DC to copy from it
+			' to prevent stretch image if DPI enabled
 			
-			If hDCWindow Then
+			Dim hdcSource As HDC = CreateCompatibleDC(hDCWindow)
+			
+			If hdcSource Then
 				
-				' We need two Memory DC to copy from it
-				' to prevent stretch image if DPI enabled
+				Dim OldBmp As HBITMAP = SelectObject(hdcSource, hBmp)
 				
-				Dim hdcSource As HDC = CreateCompatibleDC(hDCWindow)
+				Dim hdcDestination As HDC = CreateCompatibleDC(hDCWindow)
 				
-				If hdcSource Then
+				If hdcDestination Then
 					
-					Dim OldBmp As HBITMAP = SelectObject(hdcSource, hBmp)
+					Dim dwWidth As Long = pBinfo->bmiHeader.biWidth
+					Dim dwHeight As Long = pBinfo->bmiHeader.biHeight
 					
-					Dim hdcDestination As HDC = CreateCompatibleDC(hDCWindow)
+					Dim bih As BITMAPINFO = Any
+					' Convert to 24 bpp
+					With bih.bmiHeader
+						.biSize          = sizeof(BITMAPINFOHEADER)
+						.biWidth         = dwWidth
+						.biHeight        = dwHeight
+						.biPlanes        = 1
+						.biBitCount      = 24
+						.biCompression   = BI_RGB
+						.biSizeImage     = 0
+						.biXPelsPerMeter = 0
+						.biYPelsPerMeter = 0
+						.biClrUsed       = 0
+						.biClrImportant  = 0
+					End With
 					
-					If hdcDestination Then
+					Dim bmfh As BITMAPFILEHEADER = Any
+					Dim dwLength As DWORD = FillBitmapFileHeader(@bmfh, @bih.bmiHeader)
+					
+					Dim pBits As LPVOID = Any
+					Dim hNewBitmap As HBITMAP = CreateDIBSection(hdcDestination, @bih, DIB_RGB_COLORS, @pBits, NULL, 0)
+					
+					If hNewBitmap Then
 						
-						Dim dwWidth As Long = pBinfo->bmiHeader.biWidth
-						Dim dwHeight As Long = pBinfo->bmiHeader.biHeight
+						Dim OldMemBmpDestination As HBITMAP = SelectObject(hdcDestination, hNewBitmap)
 						
-						Dim bih As BITMAPINFO = Any
-						If dwBPP = 32 Then
-							' Convert to 24 bpp
-							With bih.bmiHeader
-								.biSize          = sizeof(BITMAPINFOHEADER)
-								.biWidth         = dwWidth
-								.biHeight        = dwHeight
-								.biPlanes        = 1
-								.biBitCount      = 24
-								.biCompression   = BI_RGB
-								.biSizeImage     = 0
-								.biXPelsPerMeter = 0
-								.biYPelsPerMeter = 0
-								.biClrUsed       = 0
-								.biClrImportant  = 0
-							End With
-						Else
-							MoveMemory(@bih.bmiHeader, @pBinfo->bmiHeader, SizeOf(BITMAPINFOHEADER))
-						End If
+						Dim resBlt As BOOL = BitBlt(hdcDestination, 0,0, dwWidth, Abs(dwHeight), hdcSource, 0,0, SRCCOPY)
 						
-						Dim bmfh As BITMAPFILEHEADER = Any
-						Dim dwLength As DWORD = FillBitmapFileHeader(@bmfh, @bih.bmiHeader)
-						
-						Dim pBits As LPVOID = Any
-						Dim hNewBitmap As HBITMAP = CreateDIBSection(hdcSource, @bih, DIB_RGB_COLORS, @pBits, NULL, 0)
-						
-						If hNewBitmap Then
+						If resBlt Then
 							
-							Dim OldMemBmpDestination As HBITMAP = SelectObject(hdcDestination, hNewBitmap)
+							Dim TempFileName As FileNameBuffer = Any
+							Dim hrGetTempFileName As HRESULT = FillTemporaryFileName( _
+								@TempFileName.szText(0) _
+							)
 							
-							Dim resBlt As BOOL = BitBlt(hdcDestination, 0,0, dwWidth, Abs(dwHeight), hdcSource, 0,0, SRCCOPY)
-							
-							If resBlt Then
+							If SUCCEEDED(hrGetTempFileName) Then
 								
-								Dim TempFileName As FileNameBuffer = Any
-								Dim hrGetTempFileName As HRESULT = FillTemporaryFileName( _
-									@TempFileName.szText(0) _
+								Dim hBitmapFile As HANDLE = CreateFile( _
+									@TempFileName.szText(0), _
+									GENERIC_READ Or GENERIC_WRITE, _
+									0, _
+									NULL, _
+									CREATE_ALWAYS, _
+									FILE_ATTRIBUTE_TEMPORARY Or FILE_FLAG_DELETE_ON_CLOSE, _
+									NULL _
 								)
 								
-								If SUCCEEDED(hrGetTempFileName) Then
+								If hBitmapFile <> INVALID_HANDLE_VALUE Then
 									
-									Dim hBitmapFile As HANDLE = CreateFile( _
-										@TempFileName.szText(0), _
-										GENERIC_READ Or GENERIC_WRITE, _
-										0, _
-										NULL, _
-										CREATE_ALWAYS, _
-										FILE_ATTRIBUTE_TEMPORARY Or FILE_FLAG_DELETE_ON_CLOSE, _
-										NULL _
+									SetDlgItemText( _
+										hWin, _
+										IDC_EDT_FILE, _
+										@TempFileName.szText(0) _
 									)
 									
-									If hBitmapFile <> INVALID_HANDLE_VALUE Then
-										
-										SetDlgItemText( _
-											hWin, _
-											IDC_EDT_FILE, _
-											@TempFileName.szText(0) _
-										)
-										
-										Const MimeBitmap = __TEXT("image/bmp")
-										SetDlgItemText( _
-											hWin, _
-											IDC_EDT_TYPE, _
-											@MimeBitmap _
-										)
-										
-										this->IsTemporaryFile = FileType.Temporary
-										
-										' Write File Header
-										Scope
-											Dim dwWritedBytes As DWORD = Any
-											WriteFile(hBitmapFile, @bmfh, SizeOf(BITMAPFILEHEADER), @dwWritedBytes, NULL)
-										End Scope
-										
-										' Write Info Header
-										Scope
-											Dim dwWritedBytes As DWORD = Any
-											WriteFile(hBitmapFile, @bih.bmiHeader, SizeOf(BITMAPINFOHEADER), @dwWritedBytes, NULL)
-										End Scope
-										
-										' Write Color Table
-										Scope
-											' If pBinfo->bmiHeader.biClrUsed Then
-											' 	WriteFile(hBitmapFile, pBinfo->bmiHeader, SizeOf(BITMAPINFOHEADER), @dwWritedBytes, NULL)
-											' End If
-										End Scope
-										
-										' Write Bytes
-										Scope
-											Dim dwWritedBytes As DWORD = Any
-											WriteFile(hBitmapFile, pBits, dwLength, @dwWritedBytes, NULL)
-										End Scope
-										
-										SetFilePointer( _
-											hBitmapFile, _
-											0, _
-											NULL, _
-											FILE_BEGIN _
-										)
-										
-										' CloseHandle(hBitmapFile)
-										this->FileHandle = hBitmapFile
-									End If
+									Const MimeBitmap = __TEXT("image/bmp")
+									SetDlgItemText( _
+										hWin, _
+										IDC_EDT_TYPE, _
+										@MimeBitmap _
+									)
+									
+									this->IsTemporaryFile = FileType.Temporary
+									
+									' Write File Header
+									Scope
+										Dim dwWritedBytes As DWORD = Any
+										WriteFile(hBitmapFile, @bmfh, SizeOf(BITMAPFILEHEADER), @dwWritedBytes, NULL)
+									End Scope
+									
+									' Write Info Header
+									Scope
+										Dim dwWritedBytes As DWORD = Any
+										WriteFile(hBitmapFile, @bih.bmiHeader, SizeOf(BITMAPINFOHEADER), @dwWritedBytes, NULL)
+									End Scope
+									
+									' Write Color Table
+									Scope
+										' If pBinfo->bmiHeader.biClrUsed Then
+										' 	WriteFile(hBitmapFile, pBinfo->bmiHeader, SizeOf(BITMAPINFOHEADER), @dwWritedBytes, NULL)
+										' End If
+									End Scope
+									
+									' Write Bytes
+									Scope
+										Dim dwWritedBytes As DWORD = Any
+										WriteFile(hBitmapFile, pBits, dwLength, @dwWritedBytes, NULL)
+									End Scope
+									
+									SetFilePointer( _
+										hBitmapFile, _
+										0, _
+										NULL, _
+										FILE_BEGIN _
+									)
+									
+									' CloseHandle(hBitmapFile)
+									this->FileHandle = hBitmapFile
 								End If
 							End If
-							
-							SelectObject(hdcDestination, OldMemBmpDestination)
-							DeleteObject(hNewBitmap)
 						End If
-
-						DeleteDC(hdcDestination)
+						
+						SelectObject(hdcDestination, OldMemBmpDestination)
+						DeleteObject(hNewBitmap)
 					End If
 					
-					SelectObject(hdcSource, OldBmp)
-					DeleteDC(hdcSource)
+					DeleteDC(hdcDestination)
 				End If
 				
-				ReleaseDC(hWin, hDCWindow)
+				SelectObject(hdcSource, OldBmp)
+				DeleteDC(hdcSource)
 			End If
+			
+			ReleaseDC(hWin, hDCWindow)
 		End If
 	End If
 	
