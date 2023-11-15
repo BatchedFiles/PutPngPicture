@@ -2039,6 +2039,8 @@ Private Sub DialogMain_OnDragDropFile( _
 				)
 			End If
 		End If
+		
+		DragFinish(drp)
 	End If
 	
 End Sub
