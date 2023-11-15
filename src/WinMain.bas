@@ -6,6 +6,15 @@
 #include once "Base64.bi"
 #include once "Resources.RH"
 
+Const RegistrySection = __TEXT("Software\BatchedFiles\HttpRestClient")
+Const ServerKeyString = __TEXT("Server")
+Const ResourceKeyString = __TEXT("Resource")
+Const VerbKeyString = __TEXT("Verb")
+Const FileKeyString = __TEXT("File")
+Const ContentTypeKeyString = __TEXT("ContentType")
+Const UserNameKeyString = __TEXT("UserName")
+Const PasswordKeyString = __TEXT("Password")
+
 Const NETEVENT_NOTICE = WM_USER + 2
 
 Enum NetEventKind
@@ -58,13 +67,18 @@ Type ClientRequest
 	Headers(RequestHeadersLength - 1) As ZString Ptr
 End Type
 
+Enum FileType
+	DiskFile
+	Temporary
+End Enum
+
 Type HttpRestForm
 	hInst As HINSTANCE
 	FileHandle As HANDLE
 	MapFileHandle As HANDLE
 	ClientSocket As SOCKET
 	liFileSize As LARGE_INTEGER
-	IsTemporaryFile As Integer
+	IsTemporaryFile As FileType
 	hHeap As HANDLE
 	hEvent As HANDLE
 	hWin As HWND
@@ -83,6 +97,27 @@ End Type
 
 Type ErrorBuffer
 	szText(255) As TCHAR
+End Type
+
+Type HttpRestFormSettings
+	Server As FileNameBuffer
+	Resource As FileNameBuffer
+	Verb As FileNameBuffer
+	File As FileNameBuffer
+	ContentType As FileNameBuffer
+	UserName As FileNameBuffer
+	Password As FileNameBuffer
+End Type
+
+Type SettingsItem
+	Key As TCHAR Ptr
+	Value As TCHAR Ptr
+	ValueLength As Integer
+	ControlId As Integer
+End Type
+
+Type SettingsVector
+	Vec(0 To 6) As SettingsItem
 End Type
 
 Private Function HeaderNameToString( _
@@ -858,16 +893,181 @@ Private Function ProgressDialogProc( _
 	
 End Function
 
+Private Function LoadSettings( _
+		ByVal pVec As SettingsVector Ptr _
+	)As HRESULT
+	
+	Dim hRegistryKey As HKEY = Any
+	Dim resOpen As LSTATUS = RegOpenKeyEx( _
+		HKEY_CURRENT_USER, _
+		@RegistrySection, _
+		0, _
+		KEY_READ, _
+		@hRegistryKey _
+	)
+	
+	If resOpen = ERROR_SUCCESS Then
+		
+		For i As Integer = LBound(pVec->Vec) To UBound(pVec->Vec)
+		
+			Dim ValueType As DWORD = Any
+			Dim bufRegValue As FileNameBuffer = Any
+			Dim cbBytes As DWORD = (MAX_PATH - 1) * SizeOf(TCHAR)
+			
+			Dim resQuery As LSTATUS = RegQueryValueEx( _
+				hRegistryKey, _
+				pVec->Vec(i).Key, _
+				0, _
+				@ValueType, _
+				pVec->Vec(i).Value, _
+				@cbBytes _
+			)
+			
+			If resQuery = ERROR_SUCCESS Then
+				If ValueType = REG_SZ Then
+					If cbBytes Then
+						Dim ValueLength As Integer = (cbBytes \ SizeOf(TCHAR)) - 1
+						
+						pVec->Vec(i).Value[ValueLength] = 0
+						pVec->Vec(i).ValueLength = ValueLength
+					Else
+						pVec->Vec(i).Value[0] = 0
+						pVec->Vec(i).ValueLength = 0
+					End If
+				Else
+					pVec->Vec(i).Value[0] = 0
+					pVec->Vec(i).ValueLength = 0
+				End If
+			Else
+				pVec->Vec(i).Value[0] = 0
+				pVec->Vec(i).ValueLength = 0
+			End If
+		Next
+		
+		RegCloseKey(hRegistryKey)
+		
+		Return S_OK
+	End If
+	
+	Return E_FAIL
+	
+End Function
+
+Private Function SaveSettings( _
+		ByVal pVec As SettingsVector Ptr _
+	)As HRESULT
+	
+	Dim hRegistryKey As HKEY = Any
+	Dim resOpen As LSTATUS = RegCreateKeyEx( _
+		HKEY_CURRENT_USER, _
+		@RegistrySection, _
+		0, _
+		NULL, _
+		REG_OPTION_NON_VOLATILE, _
+		KEY_WRITE, _
+		NULL, _
+		@hRegistryKey, _
+		NULL _
+	)
+	
+	If resOpen = ERROR_SUCCESS Then
+	
+		For i As Integer = LBound(pVec->Vec) To UBound(pVec->Vec)
+			If pVec->Vec(i).ValueLength Then
+				Dim cbBytes As DWORD = (pVec->Vec(i).ValueLength + 1) * SizeOf(TCHAR)
+				RegSetValueEx( _
+					hRegistryKey, _
+					pVec->Vec(i).Key, _
+					0, _
+					REG_SZ, _
+					pVec->Vec(i).Value, _
+					cbBytes _
+				)
+			End If
+		Next
+		
+		RegCloseKey(hRegistryKey)
+		
+		Return S_OK
+	End If
+	
+	Return E_FAIL
+	
+End Function
+
 Private Sub DialogMain_OnLoad( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
 	)
 	
-	Dim hcn As HICON = LoadIcon(this->hInst, MAKEINTRESOURCE(IDI_MAIN))
-	SendMessage(hWin, WM_SETICON, ICON_SMALL, Cast(LPARAM, hcn))
-	SendMessage(hWin, WM_SETICON, ICON_BIG, Cast(LPARAM, hcn))
-
 	this->hWin = hWin
+	
+	Scope
+		Dim hcn As HICON = LoadIcon(this->hInst, MAKEINTRESOURCE(IDI_MAIN))
+		SendMessage(hWin, WM_SETICON, ICON_SMALL, Cast(LPARAM, hcn))
+		SendMessage(hWin, WM_SETICON, ICON_BIG, Cast(LPARAM, hcn))
+	End Scope
+	
+	Scope
+		Dim pMem As HttpRestFormSettings Ptr = HeapAlloc( _
+			this->hHeap, _
+			0, _
+			SizeOf(HttpRestFormSettings) _
+		)
+		
+		If pMem Then
+			Dim vec As SettingsVector = Any
+			
+			vec.Vec(0).Key = @ServerKeyString
+			vec.Vec(0).Value = @pMem->Server.szText(0)
+			vec.Vec(0).ControlId = IDC_EDT_SERVER
+			
+			vec.Vec(1).Key = @ResourceKeyString
+			vec.Vec(1).Value = @pMem->Resource.szText(0)
+			vec.Vec(1).ControlId = IDC_EDT_RESOURCE
+			
+			vec.Vec(2).Key = @VerbKeyString
+			vec.Vec(2).Value = @pMem->Verb.szText(0)
+			vec.Vec(2).ControlId = IDC_EDT_VERB
+			
+			vec.Vec(3).Key = @FileKeyString
+			vec.Vec(3).Value = @pMem->File.szText(0)
+			vec.Vec(3).ControlId = IDC_EDT_FILE
+			
+			vec.Vec(4).Key = @ContentTypeKeyString
+			vec.Vec(4).Value = @pMem->ContentType.szText(0)
+			vec.Vec(4).ControlId = IDC_EDT_TYPE
+			
+			vec.Vec(5).Key = @UserNameKeyString
+			vec.Vec(5).Value = @pMem->UserName.szText(0)
+			vec.Vec(5).ControlId = IDC_EDT_USER
+			
+			vec.Vec(6).Key = @PasswordKeyString
+			vec.Vec(6).Value = @pMem->Password.szText(0)
+			vec.Vec(6).ControlId = IDC_EDT_PASSWORD
+			
+			Dim hrLoad As HRESULT = LoadSettings(@vec)
+			
+			If SUCCEEDED(hrLoad) Then
+				For i As Integer = LBound(vec.Vec) To UBound(vec.Vec)
+					
+					If vec.Vec(i).ValueLength Then
+						SetDlgItemText( _
+							hWin, _
+							vec.Vec(i).ControlId, _
+							vec.Vec(i).Value _
+						)
+					End If
+				Next
+			End If
+			
+			HeapFree( _
+				this->hHeap, _
+				0, _
+				pMem _
+			)
+		End If
+	End Scope
 	
 End Sub
 
@@ -1318,6 +1518,67 @@ Private Sub IDOK_OnClick( _
 				this->ResponseLength = 0
 				this->pResponseMem = NULL
 				
+				Dim pMem As HttpRestFormSettings Ptr = HeapAlloc( _
+					this->hHeap, _
+					0, _
+					SizeOf(HttpRestFormSettings) _
+				)
+				
+				If pMem Then
+					Dim vec As SettingsVector = Any
+					
+					vec.Vec(0).Key = @ServerKeyString
+					vec.Vec(0).Value = @pMem->Server.szText(0)
+					vec.Vec(0).ControlId = IDC_EDT_SERVER
+					
+					vec.Vec(1).Key = @ResourceKeyString
+					vec.Vec(1).Value = @pMem->Resource.szText(0)
+					vec.Vec(1).ControlId = IDC_EDT_RESOURCE
+					
+					vec.Vec(2).Key = @VerbKeyString
+					vec.Vec(2).Value = @pMem->Verb.szText(0)
+					vec.Vec(2).ControlId = IDC_EDT_VERB
+					
+					vec.Vec(3).Key = @FileKeyString
+					vec.Vec(3).Value = @pMem->File.szText(0)
+					vec.Vec(3).ControlId = IDC_EDT_FILE
+					
+					vec.Vec(4).Key = @ContentTypeKeyString
+					vec.Vec(4).Value = @pMem->ContentType.szText(0)
+					vec.Vec(4).ControlId = IDC_EDT_TYPE
+					
+					vec.Vec(5).Key = @UserNameKeyString
+					vec.Vec(5).Value = @pMem->UserName.szText(0)
+					vec.Vec(5).ControlId = IDC_EDT_USER
+					
+					vec.Vec(6).Key = @PasswordKeyString
+					vec.Vec(6).Value = @pMem->Password.szText(0)
+					vec.Vec(6).ControlId = IDC_EDT_PASSWORD
+					
+					For i As Integer = LBound(vec.Vec) To UBound(vec.Vec)
+						vec.Vec(i).ValueLength = GetDlgItemText( _
+							hWin, _
+							vec.Vec(i).ControlId, _
+							vec.Vec(i).Value, _
+							MAX_PATH _
+						)
+					Next
+					
+					If this->IsTemporaryFile = FileType.Temporary Then
+						vec.Vec(3).Value = NULL
+						vec.Vec(3).ValueLength = 0
+					End If
+					
+					' Save settings
+					SaveSettings(@vec)
+					
+					HeapFree( _
+						this->hHeap, _
+						0, _
+						pMem _
+					)
+				End If
+				
 			Case IDCANCEL
 				' Cancel send receive data
 				
@@ -1334,6 +1595,8 @@ Private Sub IDOK_OnClick( _
 			IDC_EDT_FILE, _
 			NULL _
 		)
+		
+		this->IsTemporaryFile = FileType.DiskFile
 		
 	End Scope
 	
@@ -1398,6 +1661,8 @@ Private Sub BrowseButton_OnClick( _
 		IDC_EDT_FILE, _
 		@buf.szText(0) _
 	)
+	
+	this->IsTemporaryFile = FileType.DiskFile
 	
 	If fn.nFileExtension Then
 		Dim ExtensionWithDotOffset As Integer = fn.nFileExtension - 1
@@ -1642,7 +1907,9 @@ Private Sub PasteButton_OnClick( _
 											@MimeBitmap _
 										)
 										
-											' Write File Header
+										this->IsTemporaryFile = FileType.Temporary
+										
+										' Write File Header
 										Scope
 											Dim dwWritedBytes As DWORD = Any
 											WriteFile(hBitmapFile, @bmfh, SizeOf(BITMAPFILEHEADER), @dwWritedBytes, NULL)
