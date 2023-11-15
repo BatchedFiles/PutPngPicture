@@ -2010,6 +2010,35 @@ Private Sub DialogMain_OnDragDropFile( _
 			IDC_EDT_FILE, _
 			@FileName.szText(0) _
 		)
+		
+		Dim ExtensionWithDotOffset As Integer = -1
+		
+		For i As Integer = resDrag - 1 To 0 Step -1
+			Dim Code As Integer = FileName.szText(i)
+			If Code = Asc(".") Then
+				ExtensionWithDotOffset = i
+				Exit For
+			End If
+		Next
+		
+		If ExtensionWithDotOffset <> -1 Then
+			Dim pExt As TCHAR Ptr = @FileName.szText(ExtensionWithDotOffset)
+			
+			Dim bufRegValue As FileNameBuffer = Any
+			Dim hrContentType As HRESULT = GetContentTypeOfFileExtension( _
+				@bufRegValue.szText(0), _
+				pExt, _
+				MAX_PATH _
+			)
+			
+			If SUCCEEDED(hrContentType) Then
+				SetDlgItemText( _
+					hWin, _
+					IDC_EDT_TYPE, _
+					@bufRegValue.szText(0) _
+				)
+			End If
+		End If
 	End If
 	
 End Sub
