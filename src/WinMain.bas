@@ -2039,8 +2039,6 @@ Private Sub DialogMain_OnDragDropFile( _
 				)
 			End If
 		End If
-		
-		DragFinish(drp)
 	End If
 	
 End Sub
@@ -2084,7 +2082,9 @@ Private Function InputDataDialogProc( _
 			
 		Case WM_DROPFILES
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-			DialogMain_OnDragDropFile(pParam, hWin, Cast(HDROP, wParam))
+			Dim drp As HDROP = Cast(HDROP, wParam)
+			DialogMain_OnDragDropFile(pParam, hWin, drp)
+			DragFinish(drp)
 			
 		Case Else
 			Return FALSE
