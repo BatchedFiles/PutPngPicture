@@ -105,8 +105,6 @@ Type HttpRestFormSettings
 	Verb As FileNameBuffer
 	File As FileNameBuffer
 	ContentType As FileNameBuffer
-	UserName As FileNameBuffer
-	Password As FileNameBuffer
 End Type
 
 Type SettingsItem
@@ -1038,14 +1036,6 @@ Private Sub DialogMain_OnLoad( _
 			vec.Vec(4).Value = @pMem->ContentType.szText(0)
 			vec.Vec(4).ControlId = IDC_EDT_TYPE
 			
-			vec.Vec(5).Key = @UserNameKeyString
-			vec.Vec(5).Value = @pMem->UserName.szText(0)
-			vec.Vec(5).ControlId = IDC_EDT_USER
-			
-			vec.Vec(6).Key = @PasswordKeyString
-			vec.Vec(6).Value = @pMem->Password.szText(0)
-			vec.Vec(6).ControlId = IDC_EDT_PASSWORD
-			
 			Dim hrLoad As HRESULT = LoadSettings(@vec)
 			
 			If SUCCEEDED(hrLoad) Then
@@ -1546,14 +1536,6 @@ Private Sub IDOK_OnClick( _
 					vec.Vec(4).Key = @ContentTypeKeyString
 					vec.Vec(4).Value = @pMem->ContentType.szText(0)
 					vec.Vec(4).ControlId = IDC_EDT_TYPE
-					
-					vec.Vec(5).Key = @UserNameKeyString
-					vec.Vec(5).Value = @pMem->UserName.szText(0)
-					vec.Vec(5).ControlId = IDC_EDT_USER
-					
-					vec.Vec(6).Key = @PasswordKeyString
-					vec.Vec(6).Value = @pMem->Password.szText(0)
-					vec.Vec(6).ControlId = IDC_EDT_PASSWORD
 					
 					For i As Integer = LBound(vec.Vec) To UBound(vec.Vec)
 						vec.Vec(i).ValueLength = GetDlgItemText( _
