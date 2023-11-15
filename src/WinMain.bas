@@ -1,6 +1,7 @@
 #include once "WinMain.bi"
 #include once "win\commctrl.bi"
 #include once "win\commdlg.bi"
+#include once "win\shellapi.bi"
 #include once "win\windowsx.bi"
 #include once "win\mswsock.bi"
 #include once "Base64.bi"
@@ -329,12 +330,13 @@ Private Function HttpRestFormSendFile( _
 	
 	Scope
 		Dim stpCount As UInteger = idiv64(this->liFileSize.QuadPart, PieceSize.QuadPart)
+		Dim stpCount1 As UInteger = stpCount + 1
 		
 		PostMessage( _
 			this->hWin, _
 			NETEVENT_NOTICE, _
 			NetEventKind.StepsCount, _
-			stpCount _
+			stpCount1 _
 		)
 	End Scope
 	
@@ -388,6 +390,7 @@ Private Function HttpRestFormSendFile( _
 		End If
 		
 		Offset.QuadPart = Offset.QuadPart + PieceSize.QuadPart
+		
 	Loop
 	
 	Return S_OK
@@ -556,6 +559,13 @@ Private Function WorkerThread( _
 					
 					' Set Terminate NUL Character
 					this->pResponseMem[this->ResponseLength] = 0
+					
+					PostMessage( _
+						this->hWin, _
+						NETEVENT_NOTICE, _
+						NetEventKind.ReadResponse, _
+						0 _
+					)
 					
 				End Scope
 				
@@ -777,7 +787,7 @@ Private Sub Socket_OnWSANetEvent( _
 				IDC_PRB_PROGRESS, _
 				PBM_SETRANGE, _
 				0, _
-				MAKELPARAM(0, nError) _
+				MAKELPARAM(1, nError) _
 			)
 			SendDlgItemMessage( _
 				hWin, _
@@ -999,6 +1009,8 @@ Private Sub DialogMain_OnLoad( _
 	)
 	
 	this->hWin = hWin
+	
+	DragAcceptFiles(hWin, TRUE)
 	
 	Scope
 		Dim hcn As HICON = LoadIcon(this->hInst, MAKEINTRESOURCE(IDI_MAIN))
@@ -1586,6 +1598,59 @@ Private Sub IDOK_OnClick( _
 	
 End Sub
 
+Private Function GetContentTypeOfFileExtension( _
+		ByVal pBuf As TCHAR Ptr, _
+		ByVal pFileExtension As TCHAR Ptr, _
+		ByVal Capacity As Integer _
+	)As HRESULT
+	
+	Dim hRegistryKey As HKEY = Any
+	Dim resOpen As LSTATUS = RegOpenKeyEx( _
+		HKEY_CLASSES_ROOT, _
+		pFileExtension, _
+		0, _
+		KEY_READ, _
+		@hRegistryKey _
+	)
+	If resOpen <> ERROR_SUCCESS Then
+		Return E_FAIL
+	End If
+	
+	Dim ValueType As DWORD = Any
+	
+	Const ContentTypeString = __TEXT("Content Type")
+	Dim cbBytes As DWORD = (Capacity - 1) * SizeOf(TCHAR)
+	Dim resQuery As LSTATUS = RegQueryValueEx( _
+		hRegistryKey, _
+		@ContentTypeString, _
+		0, _
+		@ValueType, _
+		pBuf, _
+		@cbBytes _
+	)
+	
+	If resQuery <> ERROR_SUCCESS Then
+		RegCloseKey(hRegistryKey)
+		Return E_FAIL
+	End If
+	
+	If ValueType <> REG_SZ Then
+		RegCloseKey(hRegistryKey)
+		Return E_FAIL
+	End If
+	
+	If cbBytes = 0 Then
+		RegCloseKey(hRegistryKey)
+		Return E_FAIL
+	End If
+	
+	Dim ValueLength As Integer = (cbBytes \ SizeOf(TCHAR)) - 1
+	pBuf[ValueLength] = 0
+	
+	Return S_OK
+	
+End Function
+
 Private Sub BrowseButton_OnClick( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
@@ -1651,49 +1716,20 @@ Private Sub BrowseButton_OnClick( _
 	If fn.nFileExtension Then
 		Dim ExtensionWithDotOffset As Integer = fn.nFileExtension - 1
 		Dim pExt As TCHAR Ptr = @buf.szText(ExtensionWithDotOffset)
-		Dim Length As Long = lstrlen(pExt)
 		
-		If Length Then
-			Dim hRegistryKey As HKEY = Any
-			Dim resOpen As LSTATUS = RegOpenKeyEx( _
-				HKEY_CLASSES_ROOT, _
-				pExt, _
-				0, _
-				KEY_READ, _
-				@hRegistryKey _
+		Dim bufRegValue As FileNameBuffer = Any
+		Dim hrContentType As HRESULT = GetContentTypeOfFileExtension( _
+			@bufRegValue.szText(0), _
+			pExt, _
+			MAX_PATH _
+		)
+		
+		If SUCCEEDED(hrContentType) Then
+			SetDlgItemText( _
+				hWin, _
+				IDC_EDT_TYPE, _
+				@bufRegValue.szText(0) _
 			)
-			
-			If resOpen = ERROR_SUCCESS Then
-				Const ContentTypeString = __TEXT("Content Type")
-				Dim ValueType As DWORD = Any
-				Dim bufRegValue As FileNameBuffer = Any
-				Dim cbBytes As DWORD = ((UBound(bufRegValue.szText) - LBound(bufRegValue.szText) + 1) - 1) * SizeOf(TCHAR)
-				Dim resQuery As LSTATUS = RegQueryValueEx( _
-					hRegistryKey, _
-					@ContentTypeString, _
-					0, _
-					@ValueType, _
-					@bufRegValue.szText(0), _
-					@cbBytes _
-				)
-				
-				If resQuery = ERROR_SUCCESS Then
-					If ValueType = REG_SZ Then
-						If cbBytes Then
-							Dim ValueLength As Integer = (cbBytes \ SizeOf(TCHAR)) - 1
-							bufRegValue.szText(ValueLength) = 0
-							
-							SetDlgItemText( _
-								hWin, _
-								IDC_EDT_TYPE, _
-								@bufRegValue.szText(0) _
-							)
-						End If
-					End If
-				End If
-				
-				RegCloseKey(hRegistryKey)
-			End If
 		End If
 	End If
 	
