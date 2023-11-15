@@ -115,7 +115,7 @@ Type SettingsItem
 End Type
 
 Type SettingsVector
-	Vec(0 To 6) As SettingsItem
+	Vec(0 To 4) As SettingsItem
 End Type
 
 Private Function HeaderNameToString( _
@@ -1951,6 +1951,33 @@ Private Sub DialogMain_OnUnload( _
 	
 End Sub
 
+Private Sub DialogMain_OnDragDropFile( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND, _
+		ByVal drp As HDROP _
+	)
+	
+	Const FileIndex = 0
+	
+	Dim FileName As FileNameBuffer = Any
+	
+	Dim resDrag As UINT = DragQueryFile( _
+		drp, _
+		FileIndex, _
+		@FileName.szText(0), _
+		MAX_PATH _
+	)
+	
+	If resDrag Then
+		SetDlgItemText( _
+			hWin, _
+			IDC_EDT_FILE, _
+			@FileName.szText(0) _
+		)
+	End If
+	
+End Sub
+
 Private Function InputDataDialogProc( _
 		ByVal hWin As HWND, _
 		ByVal uMsg As UINT, _
@@ -1987,6 +2014,10 @@ Private Function InputDataDialogProc( _
 		Case WM_CLOSE
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
 			DialogMain_OnUnload(pParam, hWin)
+			
+		Case WM_DROPFILES
+			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+			DialogMain_OnDragDropFile(pParam, hWin, Cast(HDROP, wParam))
 			
 		Case Else
 			Return FALSE
