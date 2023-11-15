@@ -1572,11 +1572,13 @@ Private Sub IDOK_OnClick( _
 			
 		End Select
 		
-		SetDlgItemText( _
-			hWin, _
-			IDC_EDT_FILE, _
-			NULL _
-		)
+		If this->IsTemporaryFile = FileType.Temporary Then
+			SetDlgItemText( _
+				hWin, _
+				IDC_EDT_FILE, _
+				NULL _
+			)
+		End If
 		
 		this->IsTemporaryFile = FileType.DiskFile
 		
