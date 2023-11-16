@@ -88,8 +88,10 @@ Type HttpRestForm
 	CRequest As ClientRequest
 End Type
 
+Const RESOURCE_STRING_BUFFER_CAPACITY = 255
+
 Type ResourceStringBuffer
-	szText(255) As TCHAR
+	szText(RESOURCE_STRING_BUFFER_CAPACITY) As TCHAR
 End Type
 
 Type FileNameBuffer
@@ -633,12 +635,34 @@ Private Sub DisplayError( _
 End Sub
 
 Private Sub DisplaySuccess( _
+		ByVal hInst As HINSTANCE, _
 		ByVal hWin As HWND, _
-		ByVal Caption As LPCTSTR, _
-		ByVal MsgText As LPCTSTR _
+		ByVal CaptionId As UINT, _
+		ByVal MsgTextId As UINT _
 	)
 	
-	MessageBox(hWin, MsgText, Caption, MB_OK Or MB_ICONINFORMATION)
+	Dim MsgText As ResourceStringBuffer = Any
+	LoadString( _
+		hInst, _
+		MsgTextId, _
+		@MsgText.szText(0), _
+		RESOURCE_STRING_BUFFER_CAPACITY _
+	)
+	
+	Dim MsgCaption As ResourceStringBuffer = Any
+	LoadString( _
+		hInst, _
+		CaptionId, _
+		@MsgCaption.szText(0), _
+		RESOURCE_STRING_BUFFER_CAPACITY _
+	)
+	
+	MessageBox( _
+		hWin, _
+		@MsgText.szText(0), _
+		@MsgCaption.szText(0), _
+		MB_OK Or MB_ICONINFORMATION _
+	)
 	
 End Sub
 
@@ -821,9 +845,12 @@ Private Sub Socket_OnWSANetEvent( _
 			End If
 			
 		Case NetEventKind.Done
-			Const Caption = __TEXT("Done")
-			Const MsgText = __TEXT("Sending File done")
-			DisplaySuccess(hWin, @Caption, @MsgText)
+			DisplaySuccess( _
+				this->hInst, _
+				hWin, _
+				IDS_DONE, _
+				IDS_SENDINGDONE _
+			)
 			EndDialog(hWin, IDOK)
 			
 	End Select
