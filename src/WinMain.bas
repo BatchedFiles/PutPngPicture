@@ -8,11 +8,11 @@
 #include once "Resources.RH"
 
 Const RegistrySection = __TEXT("Software\BatchedFiles\HttpRestClient")
-Const ServerKeyString = __TEXT("Server")
+Const ServerKeyString = __TEXT("Host")
 Const ResourceKeyString = __TEXT("Resource")
 Const VerbKeyString = __TEXT("Verb")
 Const FileKeyString = __TEXT("File")
-Const ContentTypeKeyString = __TEXT("ContentType")
+Const ContentTypeKeyString = __TEXT("Content-Type")
 Const UserNameKeyString = __TEXT("UserName")
 Const PasswordKeyString = __TEXT("Password")
 
@@ -99,7 +99,7 @@ Type FileNameBuffer
 End Type
 
 Type ErrorBuffer
-	szText(255) As TCHAR
+	szText(RESOURCE_STRING_BUFFER_CAPACITY) As TCHAR
 End Type
 
 Type HttpRestFormSettings
@@ -595,23 +595,30 @@ Private Function WorkerThread( _
 End Function
 
 Private Sub DisplayError( _
+		ByVal hInst As HINSTANCE, _
 		ByVal hWin As HWND, _
 		ByVal dwErrorCode As DWORD, _
-		ByVal Caption As LPCTSTR _
+		ByVal CaptionId As UINT _
 	)
 	
-	Const FormatString = __TEXT(!"Error code: %d\r\n")
+	Dim FormatString As ResourceStringBuffer = Any
+	LoadString( _
+		hInst, _
+		IDS_ERRORFORMAT, _
+		@FormatString.szText(0), _
+		RESOURCE_STRING_BUFFER_CAPACITY _
+	)
 	
 	Dim buf As ErrorBuffer = Any
 	Dim BufLen As Integer = wsprintf( _
 		@buf.szText(0), _
-		@FormatString, _
+		@FormatString.szText(0), _
 		dwErrorCode _
 	)
 	
 	If BufLen Then
 		Dim wBuffer As ErrorBuffer = Any
-		Dim BufLen2 As Integer = (UBound(buf.szText) - LBound(buf.szText) + 1) - 1 - BufLen
+		Dim BufLen2 As Integer = (RESOURCE_STRING_BUFFER_CAPACITY - 1) - BufLen
 		Dim CharsCount As DWORD = FormatMessage( _
 			FORMAT_MESSAGE_FROM_SYSTEM Or FORMAT_MESSAGE_MAX_WIDTH_MASK, _
 			NULL, _
@@ -623,10 +630,17 @@ Private Sub DisplayError( _
 		)
 		
 		If CharsCount Then
+			Dim MsgCaption As ResourceStringBuffer = Any
+			LoadString( _
+				hInst, _
+				CaptionId, _
+				@MsgCaption.szText(0), _
+				RESOURCE_STRING_BUFFER_CAPACITY _
+			)
 			MessageBox( _
 				hWin, _
 				@buf.szText(0), _
-				Caption, _
+				@MsgCaption.szText(0), _
 				MB_OK Or MB_ICONERROR _
 			)
 		End If
@@ -793,15 +807,13 @@ Private Sub Socket_OnWSANetEvent( _
 		
 		Case NetEventKind.Connect
 			If nError Then
-				Const Caption = __TEXT("Connect to Server")
-				DisplayError(hWin, nError, @Caption)
+				DisplayError(this->hInst, hWin, nError, IDS_CONNECT)
 				EndDialog(hWin, IDCANCEL)
 			End If
 			
 		Case NetEventKind.SendHeaders
 			If nError Then
-				Const Caption = __TEXT("Send Headers")
-				DisplayError(hWin, nError, @Caption)
+				DisplayError(this->hInst, hWin, nError, IDS_SENDHEADERS)
 				EndDialog(hWin, IDCANCEL)
 			End If
 			
@@ -832,15 +844,13 @@ Private Sub Socket_OnWSANetEvent( _
 			
 		Case NetEventKind.SendBody
 			If nError Then
-				Const Caption = __TEXT("Send Body")
-				DisplayError(hWin, nError, @Caption)
+				DisplayError(this->hInst, hWin, nError, IDS_SENDBODY)
 				EndDialog(hWin, IDCANCEL)
 			End If
 			
 		Case NetEventKind.ReadResponse
 			If nError Then
-				Const Caption = __TEXT("Read Response from Server")
-				DisplayError(hWin, nError, @Caption)
+				DisplayError(this->hInst, hWin, nError, IDS_READRESPONSE)
 				EndDialog(hWin, IDCANCEL)
 			End If
 			
@@ -1137,9 +1147,8 @@ Private Sub IDOK_OnClick( _
 			)
 			
 			If VerbLength = 0 OrElse UrlParhLength = 0 Then
-				Const Caption = __TEXT("Method and Path must be present")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_METHODMUSTBE)
 				Exit Sub
 			End If
 			
@@ -1158,9 +1167,8 @@ Private Sub IDOK_OnClick( _
 				cbBytesUrlParh _
 			)
 			If this->CRequest.RequestLine = NULL Then
-				Const Caption = __TEXT("Not enough memory")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTEDLINE)
 				Exit Sub
 			End If
 			
@@ -1180,9 +1188,8 @@ Private Sub IDOK_OnClick( _
 				cbAcceptString _
 			)
 			If this->CRequest.Headers(RequestHeaders.HeaderAccept) = NULL Then
-				Const Caption = __TEXT("Not enough memory")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
 				Exit Sub
 			End If
 			
@@ -1252,9 +1259,8 @@ Private Sub IDOK_OnClick( _
 							cbBytesAuthorization _
 						)
 						If this->CRequest.Headers(RequestHeaders.HeaderAuthorization) = NULL Then
-							Const Caption = __TEXT("Not enough memory")
 							HttpRestFormCleanUp(this)
-							DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+							DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
 							Exit Sub
 						End If
 						
@@ -1277,9 +1283,8 @@ Private Sub IDOK_OnClick( _
 				cbCloseString _
 			)
 			If this->CRequest.Headers(RequestHeaders.HeaderConnection) = NULL Then
-				Const Caption = __TEXT("Not enough memory")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
 				Exit Sub
 			End If
 			
@@ -1308,9 +1313,8 @@ Private Sub IDOK_OnClick( _
 				cbBytesContentType _
 			)
 			If this->CRequest.Headers(RequestHeaders.HeaderContentType) = NULL Then
-				Const Caption = __TEXT("Not enough memory")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
 				Exit Sub
 			End If
 			
@@ -1322,7 +1326,7 @@ Private Sub IDOK_OnClick( _
 		
 		' Create User-Agent Header
 		Scope
-			Const UserAgent = __TEXT("RestClient")
+			Const UserAgent = __TEXT("HttpRestClient")
 			Dim cbBytesUserAgent As Integer = (Len(UserAgent) + 1) * SizeOf(TCHAR)
 			this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = HeapAlloc( _
 				this->hHeap, _
@@ -1330,9 +1334,8 @@ Private Sub IDOK_OnClick( _
 				cbBytesUserAgent _
 			)
 			If this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = NULL Then
-				Const Caption = __TEXT("Not enough memory")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
 				Exit Sub
 			End If
 			
@@ -1359,9 +1362,8 @@ Private Sub IDOK_OnClick( _
 				cbBytesHeaderHost _
 			)
 			If this->CRequest.Headers(RequestHeaders.HeaderHost) = NULL Then
-				Const Caption = __TEXT("Not enough memory")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
 				Exit Sub
 			End If
 			
@@ -1380,10 +1382,9 @@ Private Sub IDOK_OnClick( _
 		End Scope
 		
 		If this->CRequest.ServerAddress = NULL Then
-			Const Caption = __TEXT("Get Host by Name")
 			Dim dwError As Long = WSAGetLastError()
 			HttpRestFormCleanUp(this)
-			DisplayError(hWin, dwError, @Caption)
+			DisplayError(this->hInst, hWin, dwError, IDS_GETHOSTBYNAME)
 			Exit Sub
 		End If
 		
@@ -1400,8 +1401,7 @@ Private Sub IDOK_OnClick( _
 				MAX_PATH _
 			)
 			If FileNameLength = 0 Then
-				Const Caption = __TEXT("File name must be present")
-				DisplayError(hWin, ERROR_FILE_NOT_FOUND, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_FILENAMEMUSTBE)
 				Exit Sub
 			End If
 			
@@ -1415,10 +1415,9 @@ Private Sub IDOK_OnClick( _
 				NULL _
 			)
 			If this->FileHandle = INVALID_HANDLE_VALUE Then
-				Const Caption = __TEXT("CreateFile")
 				Dim dwError As DWORD = GetLastError()
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, dwError, @Caption)
+				DisplayError(this->hInst, hWin, dwError, IDS_CANNOTOPENFILE)
 				Exit Sub
 			End If
 		End If
@@ -1432,9 +1431,8 @@ Private Sub IDOK_OnClick( _
 			Dim dwError As DWORD = GetLastError()
 			If this->liFileSize.LowPart = INVALID_FILE_SIZE Then
 				If dwError <> NO_ERROR Then
-					Const Caption = __TEXT("GetFileSize")
 					HttpRestFormCleanUp(this)
-					DisplayError(hWin, dwError, @Caption)
+					DisplayError(this->hInst, hWin, dwError, IDS_CANNOTGETFILESIZE)
 					Exit Sub
 				End If
 			End If
@@ -1442,9 +1440,8 @@ Private Sub IDOK_OnClick( _
 		
 		If this->liFileSize.LowPart = 0 Then
 			If this->liFileSize.HighPart = 0 Then
-				Const Caption = __TEXT("File Size must be greater then Zero")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_OPEN_FAILED, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_OPEN_FAILED, IDS_FILESIZEZERO)
 				Exit Sub
 			End If
 		End If
@@ -1466,9 +1463,8 @@ Private Sub IDOK_OnClick( _
 				cbContentLength _
 			)
 			If this->CRequest.Headers(RequestHeaders.HeaderContentLength) = NULL Then
-				Const Caption = __TEXT("Not enough memory")
 				HttpRestFormCleanUp(this)
-				DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
 				Exit Sub
 			End If
 			
@@ -1486,10 +1482,9 @@ Private Sub IDOK_OnClick( _
 			NULL _
 		)
 		If this->MapFileHandle = NULL Then
-			Const Caption = __TEXT("CreateFileMapping")
 			Dim dwError As DWORD = GetLastError()
 			HttpRestFormCleanUp(this)
-			DisplayError(hWin, dwError, @Caption)
+			DisplayError(this->hInst, hWin, dwError, IDS_FILEMAPPING)
 			Exit Sub
 		End If
 	End Scope
@@ -1498,10 +1493,9 @@ Private Sub IDOK_OnClick( _
 	Scope
 		this->ClientSocket = socket_(AF_INET, SOCK_STREAM, IPPROTO_TCP)
 		If this->ClientSocket = INVALID_SOCKET Then
-			Const Caption = __TEXT("Create Socket")
 			Dim dwError As Long = WSAGetLastError()
 			HttpRestFormCleanUp(this)
-			DisplayError(hWin, dwError, @Caption)
+			DisplayError(this->hInst, hWin, dwError, IDS_SOCKET)
 			Exit Sub
 		End If
 	End Scope
@@ -1511,9 +1505,8 @@ Private Sub IDOK_OnClick( _
 		HttpRestFormToString(this)
 		
 		If this->CRequest.AllHeaders = NULL Then
-			Const Caption = __TEXT("Out of Memory")
 			HttpRestFormCleanUp(this)
-			DisplayError(hWin, ERROR_NOT_ENOUGH_MEMORY, @Caption)
+			DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADERS)
 			Exit Sub
 		End If
 	End Scope
@@ -1604,10 +1597,8 @@ Private Sub IDOK_OnClick( _
 				' Cancel send receive data
 				
 			Case Else
-				Const WinText2 = __TEXT("DialogBoxParam")
-				Const WinCaption2 = __TEXT("Error")
 				Dim dwError As DWORD = GetLastError()
-				DisplayError(hWin, dwError, @WinText2)
+				DisplayError(this->hInst, hWin, dwError, IDS_DIALOGPROGRESS)
 			
 		End Select
 		
@@ -1683,8 +1674,21 @@ Private Sub BrowseButton_OnClick( _
 		ByVal hWin As HWND _
 	)
 	
-	Const FileFilter = __TEXT(!"All files (*)\0*\0\0")
-	Const Caption = __TEXT("Select File to send")
+	Dim FileFilter As ResourceStringBuffer = Any
+	LoadString( _
+		this->hInst, _
+		IDS_FILTER, _
+		@FileFilter.szText(0), _
+		RESOURCE_STRING_BUFFER_CAPACITY _
+	)
+	
+	Dim Caption As ResourceStringBuffer = Any
+	LoadString( _
+		this->hInst, _
+		IDS_SELECTFILE, _
+		@Caption.szText(0), _
+		RESOURCE_STRING_BUFFER_CAPACITY _
+	)
 	
 	Dim buf As FileNameBuffer = Any
 	buf.szText(0) = 0
@@ -1695,7 +1699,7 @@ Private Sub BrowseButton_OnClick( _
 		.lStructSize = SizeOf(OPENFILENAME) - SizeOf(Any Ptr) - SizeOf(DWORD) - SizeOf(DWORD)
 		.hwndOwner = hWin
 		.hInstance = this->hInst
-		.lpstrFilter = @FileFilter
+		.lpstrFilter = @FileFilter.szText(0)
 		.lpstrCustomFilter = NULL
 		.nMaxCustFilter = 0
 		.nFilterIndex = 1
@@ -1704,7 +1708,7 @@ Private Sub BrowseButton_OnClick( _
 		.lpstrFileTitle = NULL
 		.nMaxFileTitle = 0
 		.lpstrInitialDir = NULL
-		.lpstrTitle = @Caption
+		.lpstrTitle = @Caption.szText(0)
 		.Flags = 0
 		.nFileOffset = 0
 		.nFileExtension = 0
@@ -1722,12 +1726,9 @@ Private Sub BrowseButton_OnClick( _
 	Dim resGetFile As BOOL = GetOpenFileName(@fn)
 	
 	If resGetFile = 0 Then
-		Const WinText2 = __TEXT("GetOpenFileName")
-		
 		Dim dwError As DWORD = CommDlgExtendedError()
 		If dwError Then
-			DisplayError(hWin, dwError, @WinText2)
-			
+			DisplayError(this->hInst, hWin, dwError, IDS_OPENFILENAME)
 			Exit Sub
 		End If
 	End If
@@ -1818,7 +1819,7 @@ Private Function FillTemporaryFileName( _
 		ByVal pFileName As TCHAR Ptr _
 	)As HRESULT
 	
-	Const TempPathPrefix = __TEXT("HttpRest")
+	Const TempPathPrefix = __TEXT("HttpRestClient")
 	
 	Dim TempDir As FileNameBuffer = Any
 	Dim resGetTempPath As DWORD = GetTempPath( _
@@ -2261,9 +2262,7 @@ Private Function tWinMain( _
 			Dim hrInitNetwork As HRESULT = NetworkStartUp()
 			
 			If FAILED(hrInitNetwork) Then
-				Const WinText2 = __TEXT("Network initialize")
-				Const WinCaption2 = __TEXT("Error")
-				DisplayError(hWin, hrInitNetwork, @WinText2)
+				DisplayError(hInst, hWin, hrInitNetwork, IDS_NETWORKINIT)
 			Else
 				
 				param->hInst = hInst
@@ -2288,9 +2287,8 @@ Private Function tWinMain( _
 				)
 				
 				If hThread = NULL Then
-					Const Caption = __TEXT("Create Thread")
 					Dim dwError As DWORD = GetLastError()
-					DisplayError(hWin, dwError, @Caption)
+					DisplayError(hInst, hWin, dwError, IDS_THREAD)
 				Else
 					
 					CloseHandle(hThread)
@@ -2304,10 +2302,8 @@ Private Function tWinMain( _
 					)
 					
 					If DialogBoxParamResult = -1 Then
-						Const WinText2 = __TEXT("DialogBoxParam")
-						Const WinCaption2 = __TEXT("Error")
 						Dim dwError As DWORD = GetLastError()
-						DisplayError(hWin, dwError, @WinText2)
+						DisplayError(hInst, hWin, dwError, IDS_DIALOGMAIN)
 					End If
 					
 				End If

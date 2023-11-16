@@ -36,6 +36,29 @@
 
 #define IDS_DONE                     01001
 #define IDS_SENDINGDONE              01002
+#define IDS_ERRORFORMAT              01003
+#define IDS_CONNECT                  01004
+#define IDS_SENDHEADERS              01005
+#define IDS_SENDBODY                 01006
+#define IDS_READRESPONSE             01007
+#define IDS_METHODMUSTBE             01008
+#define IDS_REQUESTEDLINE            01009
+#define IDS_REQUESTHEADER            01010
+#define IDS_GETHOSTBYNAME            01011
+#define IDS_FILENAMEMUSTBE           01012
+#define IDS_CANNOTOPENFILE           01013
+#define IDS_CANNOTGETFILESIZE        01014
+#define IDS_FILESIZEZERO             01015
+#define IDS_FILEMAPPING              01016
+#define IDS_SOCKET                   01017
+#define IDS_REQUESTHEADERS           01018
+#define IDS_DIALOGPROGRESS           01019
+#define IDS_OPENFILENAME             01020
+#define IDS_NETWORKINIT              01021
+#define IDS_THREAD                   01022
+#define IDS_DIALOGMAIN               01023
+#define IDS_FILTER                   01024
+#define IDS_SELECTFILE               01025
 
 #define IDD_DLG_TASKS                10000
 #define IDC_GRP_REQUEST              10001
