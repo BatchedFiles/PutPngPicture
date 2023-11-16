@@ -1978,6 +1978,78 @@ Private Sub PasteButton_OnClick( _
 	
 End Sub
 
+Private Sub CopyButton_OnClick( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND _
+	)
+	
+	Dim bufServer As FileNameBuffer = Any
+	Dim ServerLength As Long = GetDlgItemText( _
+		hWin, _
+		IDC_EDT_SERVER, _
+		@bufServer.szText(0), _
+		MAX_PATH _
+	)
+	
+	Dim bufResource As FileNameBuffer = Any
+	Dim ResourceLength As Long = GetDlgItemText( _
+		hWin, _
+		IDC_EDT_RESOURCE, _
+		@bufResource.szText(0), _
+		MAX_PATH _
+	)
+	
+	If ServerLength AndAlso ResourceLength Then
+		
+		Const FormatString = __TEXT(!"http://%s%s")
+		
+		Dim Url As FileNameBuffer = Any
+		
+		Dim Length As Long = wsprintf( _
+			@Url.szText(0), _
+			@FormatString, _
+			@bufServer.szText(0), _
+			@bufResource.szText(0) _
+		)
+		
+		Dim resOpen As BOOL = OpenClipboard(hWin)
+		
+		If resOpen Then
+			
+			' Need empty clipboard
+			EmptyClipboard()
+			
+			Dim cbBytes As Integer = (Length + 1) * SizeOf(TCHAR)
+			Dim hglbCopy As HGLOBAL = GlobalAlloc( _
+				GMEM_MOVEABLE, _
+				cbBytes _
+			)
+			
+			If hglbCopy = NULL Then
+				CloseClipboard()
+				Exit Sub
+			End If
+			
+			Dim lptstrCopy As LPTSTR = GlobalLock(hglbCopy)
+			
+			If lptstrCopy = NULL Then
+				GlobalFree(hglbCopy)
+				CloseClipboard()
+				Exit Sub
+			End If
+			
+			MoveMemory(lptstrCopy, @Url.szText(0), cbBytes)
+			
+			GlobalUnlock(hglbCopy)
+			
+			SetClipboardData(CF_TEXT, hglbCopy)
+			
+			CloseClipboard()
+		End If
+	End If
+	
+End Sub
+
 Private Sub DialogMain_OnUnload( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
@@ -2073,6 +2145,9 @@ Private Function InputDataDialogProc( _
 					
 				Case IDC_BTN_PASTE
 					PasteButton_OnClick(pParam, hWin)
+					
+				Case IDC_BTN_COPY
+					CopyButton_OnClick(pParam, hWin)
 					
 			End Select
 			
