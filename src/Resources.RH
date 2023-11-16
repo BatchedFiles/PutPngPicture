@@ -34,6 +34,9 @@
 #define IDR_RT_MANIFEST1             00001
 #define IDI_MAIN                     00500
 
+#define IDS_DONE                     01001
+#define IDS_SENDINGDONE              01002
+
 #define IDD_DLG_TASKS                10000
 #define IDC_GRP_REQUEST              10001
 #define IDC_STC_SERVER               10002
