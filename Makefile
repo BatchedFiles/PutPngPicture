@@ -142,10 +142,11 @@ LDLIBSBEGIN+="$(LIB_DIR)\crtbegin.o"
 LDLIBSBEGIN+="$(LIB_DIR)\fbrt0.o"
 endif
 LDLIBS+=--start-group
-LDLIBS+=-ladvapi32 -lcrypt32 -lkernel32 -lmsvcrt
-LDLIBS+=-lole32 -loleaut32 -lcomdlg32
-LDLIBS+=-lmswsock -lwsock32 -lws2_32
-LDLIBS+=-lshell32 -lshlwapi -lgdi32 -lgdiplus -luser32 -lcomctl32
+LDLIBS+=-ladvapi32 -lcomctl32 -lcomdlg32 -lcrypt32
+LDLIBS+=-lgdi32 -lgdiplus -lkernel32 -lmswsock
+LDLIBS+=-lole32 -loleaut32 -lshell32 -lshlwapi
+LDLIBS+=-lwsock32 -lws2_32 -luser32
+LDLIBS+=-lcrtdll -lmsvcrt
 ifeq ($(USE_RUNTIME),TRUE)
 LDLIBS+=-lfb
 LDLIBS+=-luuid
@@ -165,17 +166,23 @@ OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).o
 $(OBJ_DEBUG_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).c: src$(PATH_SEP)Base64.bi
 $(OBJ_RELEASE_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).c: src$(PATH_SEP)Base64.bi
 
+OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).o
+OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).o
+
+$(OBJ_DEBUG_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).c: src$(PATH_SEP)Registry.bi
+$(OBJ_RELEASE_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).c: src$(PATH_SEP)Registry.bi
+
 OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
 OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
 
-$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)Resources.RH src$(PATH_SEP)Layout.RH src$(PATH_SEP)manifest.xml
-$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)Resources.RH src$(PATH_SEP)Layout.RH src$(PATH_SEP)manifest.xml
+$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)Resources.RH src$(PATH_SEP)manifest.xml
+$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)Resources.RH src$(PATH_SEP)manifest.xml
 
 OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).o
 OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).o
 
-$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Base64.bi src$(PATH_SEP)Resources.RH
-$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Base64.bi src$(PATH_SEP)Resources.RH
+$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Base64.bi src$(PATH_SEP)Registry.bi src$(PATH_SEP)Resources.RH
+$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Base64.bi src$(PATH_SEP)Registry.bi src$(PATH_SEP)Resources.RH
 
 
 release: $(BIN_RELEASE_DIR)$(PATH_SEP)$(OUTPUT_FILE_NAME)
