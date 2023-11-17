@@ -2114,6 +2114,7 @@ Private Function tWinMain( _
 				param->ClientSocket = INVALID_SOCKET
 				param->liFileSize.HighPart = 0
 				param->liFileSize.LowPart = 0
+				param->IsTemporaryFile = FileType.DiskFile
 				param->hHeap = ProcessHeap
 				param->hEvent = CreateEvent(NULL, TRUE, FALSE, NULL)
 				
