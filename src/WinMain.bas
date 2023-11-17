@@ -738,7 +738,7 @@ Private Function SplitServerPort( _
 	If pszPort Then
 		Dim PortLength As Long = lstrlen(pszPort)
 		If PortLength Then
-			Dim Port As Integer = atoi(pszPort)
+			Dim Port As Integer = StringToInteger(pszPort)
 			Return Port
 		Else
 			Return HttpPort
