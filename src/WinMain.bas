@@ -893,7 +893,9 @@ Private Function ProgressDialogProc( _
 		Case WM_COMMAND
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
 			
-			Select Case LOWORD(wParam)
+			Dim ControlId As WORD = LOWORD(wParam)
+			
+			Select Case ControlId
 				
 				Case IDCANCEL
 					IDCANCEL2_OnClick(pParam, hWin)
@@ -1986,7 +1988,9 @@ Private Function InputDataDialogProc( _
 		Case WM_COMMAND
 			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
 			
-			Select Case LOWORD(wParam)
+			Dim ControlId As WORD = LOWORD(wParam)
+			
+			Select Case ControlId
 				
 				Case IDOK
 					IDOK_OnClick(pParam, hWin)
