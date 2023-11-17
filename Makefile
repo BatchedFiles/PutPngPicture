@@ -81,7 +81,7 @@ CFLAGS+=-m32
 endif
 CFLAGS+=-march=$(MARCH)
 CFLAGS+=-pipe
-CFLAGS+=-Wall -Werror -Wextra -pedantic
+CFLAGS+=-Wall -Werror -Wextra
 CFLAGS+=-Wno-unused-label -Wno-unused-function
 CFLAGS+=-Wno-unused-parameter -Wno-unused-variable
 CFLAGS+=-Wno-dollar-in-identifier-extension
