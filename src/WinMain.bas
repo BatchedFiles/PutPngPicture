@@ -1556,6 +1556,20 @@ Private Sub BrowseButton_OnClick( _
 		End If
 	End If
 	
+	If fn.nFileOffset Then
+		Dim IndexPrev As Integer = fn.nFileOffset - 1
+		Dim OldValue As Integer = buf.szText(IndexPrev)
+		buf.szText(IndexPrev) = Asc("/")
+		
+		SetDlgItemText( _
+			hWin, _
+			IDC_EDT_RESOURCE, _
+			@buf.szText(IndexPrev) _
+		)
+		
+		buf.szText(IndexPrev) = OldValue
+	End If
+	
 	SetDlgItemText( _
 		hWin, _
 		IDC_EDT_FILE, _
@@ -1568,9 +1582,9 @@ Private Sub BrowseButton_OnClick( _
 		Dim ExtensionWithDotOffset As Integer = fn.nFileExtension - 1
 		Dim pExt As TCHAR Ptr = @buf.szText(ExtensionWithDotOffset)
 		
-		Dim bufRegValue As FileNameBuffer = Any
+		Dim bufContentType As FileNameBuffer = Any
 		Dim hrContentType As HRESULT = GetContentTypeOfFileExtension( _
-			@bufRegValue.szText(0), _
+			@bufContentType.szText(0), _
 			pExt, _
 			MAX_PATH _
 		)
@@ -1579,7 +1593,7 @@ Private Sub BrowseButton_OnClick( _
 			SetDlgItemText( _
 				hWin, _
 				IDC_EDT_TYPE, _
-				@bufRegValue.szText(0) _
+				@bufContentType.szText(0) _
 			)
 		End If
 	End If
