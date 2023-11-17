@@ -927,6 +927,33 @@ Private Function ProgressDialogProc( _
 	
 End Function
 
+Private Sub FillSettingsVector( _
+		ByVal pVec As SettingsVector Ptr, _
+		ByVal pMem As HttpRestFormSettings Ptr _
+	)
+	
+	pVec->Vec(0).Key = @ServerKeyString
+	pVec->Vec(0).Value = @pMem->Server.szText(0)
+	pVec->Vec(0).ControlId = IDC_EDT_SERVER
+	
+	pVec->Vec(1).Key = @ResourceKeyString
+	pVec->Vec(1).Value = @pMem->Resource.szText(0)
+	pVec->Vec(1).ControlId = IDC_EDT_RESOURCE
+	
+	pVec->Vec(2).Key = @VerbKeyString
+	pVec->Vec(2).Value = @pMem->Verb.szText(0)
+	pVec->Vec(2).ControlId = IDC_EDT_VERB
+	
+	pVec->Vec(3).Key = @FileKeyString
+	pVec->Vec(3).Value = @pMem->File.szText(0)
+	pVec->Vec(3).ControlId = IDC_EDT_FILE
+	
+	pVec->Vec(4).Key = @ContentTypeKeyString
+	pVec->Vec(4).Value = @pMem->ContentType.szText(0)
+	pVec->Vec(4).ControlId = IDC_EDT_TYPE
+	
+End Sub
+
 Private Sub DialogMain_OnLoad( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
@@ -951,26 +978,7 @@ Private Sub DialogMain_OnLoad( _
 		
 		If pMem Then
 			Dim vec As SettingsVector = Any
-			
-			vec.Vec(0).Key = @ServerKeyString
-			vec.Vec(0).Value = @pMem->Server.szText(0)
-			vec.Vec(0).ControlId = IDC_EDT_SERVER
-			
-			vec.Vec(1).Key = @ResourceKeyString
-			vec.Vec(1).Value = @pMem->Resource.szText(0)
-			vec.Vec(1).ControlId = IDC_EDT_RESOURCE
-			
-			vec.Vec(2).Key = @VerbKeyString
-			vec.Vec(2).Value = @pMem->Verb.szText(0)
-			vec.Vec(2).ControlId = IDC_EDT_VERB
-			
-			vec.Vec(3).Key = @FileKeyString
-			vec.Vec(3).Value = @pMem->File.szText(0)
-			vec.Vec(3).ControlId = IDC_EDT_FILE
-			
-			vec.Vec(4).Key = @ContentTypeKeyString
-			vec.Vec(4).Value = @pMem->ContentType.szText(0)
-			vec.Vec(4).ControlId = IDC_EDT_TYPE
+			FillSettingsVector(@vec, pMem)
 			
 			Dim hrLoad As HRESULT = LoadSettings(@vec)
 			
@@ -1435,26 +1443,7 @@ Private Sub IDOK_OnClick( _
 				
 				If pMem Then
 					Dim vec As SettingsVector = Any
-					
-					vec.Vec(0).Key = @ServerKeyString
-					vec.Vec(0).Value = @pMem->Server.szText(0)
-					vec.Vec(0).ControlId = IDC_EDT_SERVER
-					
-					vec.Vec(1).Key = @ResourceKeyString
-					vec.Vec(1).Value = @pMem->Resource.szText(0)
-					vec.Vec(1).ControlId = IDC_EDT_RESOURCE
-					
-					vec.Vec(2).Key = @VerbKeyString
-					vec.Vec(2).Value = @pMem->Verb.szText(0)
-					vec.Vec(2).ControlId = IDC_EDT_VERB
-					
-					vec.Vec(3).Key = @FileKeyString
-					vec.Vec(3).Value = @pMem->File.szText(0)
-					vec.Vec(3).ControlId = IDC_EDT_FILE
-					
-					vec.Vec(4).Key = @ContentTypeKeyString
-					vec.Vec(4).Value = @pMem->ContentType.szText(0)
-					vec.Vec(4).ControlId = IDC_EDT_TYPE
+					FillSettingsVector(@vec, pMem)
 					
 					For i As Integer = LBound(vec.Vec) To UBound(vec.Vec)
 						vec.Vec(i).ValueLength = GetDlgItemText( _
