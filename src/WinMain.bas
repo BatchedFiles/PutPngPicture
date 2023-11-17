@@ -883,16 +883,21 @@ Private Function ProgressDialogProc( _
 		ByVal lParam As LPARAM _
 	)As INT_PTR
 	
+	Dim pParam As HttpRestForm Ptr = Any
+	
+	If uMsg = WM_INITDIALOG Then
+		pParam = Cast(HttpRestForm Ptr, lParam)
+		DialogProgress_OnLoad(pParam, hWin)
+		SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pParam))
+		
+		Return True
+	End If
+	
+	pParam = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+	
 	Select Case uMsg
 		
-		Case WM_INITDIALOG
-			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, lParam)
-			DialogProgress_OnLoad(pParam, hWin)
-			SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pParam))
-			
 		Case WM_COMMAND
-			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
-			
 			Dim ControlId As WORD = LOWORD(wParam)
 			
 			Select Case ControlId
@@ -900,16 +905,17 @@ Private Function ProgressDialogProc( _
 				Case IDCANCEL
 					IDCANCEL2_OnClick(pParam, hWin)
 					
+				Case Else
+					Return False
+					
 			End Select
 			
 		Case NETEVENT_NOTICE
-			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
 			Dim nEvent As Integer = wParam
 			Dim nError As Integer = CInt(lParam)
 			Socket_OnWSANetEvent(pParam, hWin, nEvent, nError)
 			
 		Case WM_CLOSE
-			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
 			DialogProgress_OnUnload(pParam, hWin)
 			
 		Case Else
@@ -1978,15 +1984,21 @@ Private Function InputDataDialogProc( _
 		ByVal lParam As LPARAM _
 	)As INT_PTR
 	
-	Select Case uMsg
+	Dim pParam As HttpRestForm Ptr = Any
+	
+	If uMsg = WM_INITDIALOG Then
+		pParam = Cast(HttpRestForm Ptr, lParam)
+		DialogMain_OnLoad(pParam, hWin)
+		SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pParam))
 		
-		Case WM_INITDIALOG
-			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, lParam)
-			DialogMain_OnLoad(pParam, hWin)
-			SetWindowLongPtr(hWin, GWLP_USERDATA, Cast(LONG_PTR, pParam))
+		Return True
+	End If
+	
+	pParam = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
+	
+	Select Case uMsg
 			
 		Case WM_COMMAND
-			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
 			
 			Dim ControlId As WORD = LOWORD(wParam)
 			
@@ -2007,14 +2019,15 @@ Private Function InputDataDialogProc( _
 				Case IDC_BTN_COPY
 					CopyButton_OnClick(pParam, hWin)
 					
+				Case Else
+					Return False
+					
 			End Select
 			
 		Case WM_CLOSE
-			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
 			DialogMain_OnUnload(pParam, hWin)
 			
 		Case WM_DROPFILES
-			Dim pParam As HttpRestForm Ptr = Cast(HttpRestForm Ptr, GetWindowLongPtr(hWin, GWLP_USERDATA))
 			Dim drp As HDROP = Cast(HDROP, wParam)
 			DialogMain_OnDragDropFile(pParam, hWin, drp)
 			DragFinish(drp)
