@@ -898,12 +898,28 @@ Private Function ProgressDialogProc( _
 	Select Case uMsg
 		
 		Case WM_COMMAND
+			
+			Dim Reason As WORD = HIWORD(wParam)
 			Dim ControlId As WORD = LOWORD(wParam)
 			
-			Select Case ControlId
+			Select Case Reason
 				
-				Case IDCANCEL
-					IDCANCEL2_OnClick(pParam, hWin)
+				Case BN_CLICKED
+					' Menu or Button
+					
+					Select Case ControlId
+						
+						Case IDCANCEL
+							IDCANCEL2_OnClick(pParam, hWin)
+							
+						Case Else
+							Return False
+							
+					End Select
+					
+				Case 1
+					' Accelerator
+					Return False
 					
 				Case Else
 					Return False
@@ -2003,24 +2019,39 @@ Private Function InputDataDialogProc( _
 			
 		Case WM_COMMAND
 			
+			Dim Reason As WORD = HIWORD(wParam)
 			Dim ControlId As WORD = LOWORD(wParam)
 			
-			Select Case ControlId
+			Select Case Reason
 				
-				Case IDOK
-					IDOK_OnClick(pParam, hWin)
+				Case BN_CLICKED
+					' Menu or Button
 					
-				Case IDCANCEL
-					IDCANCEL_OnClick(pParam, hWin)
+					Select Case ControlId
+						
+						Case IDOK
+							IDOK_OnClick(pParam, hWin)
+							
+						Case IDCANCEL
+							IDCANCEL_OnClick(pParam, hWin)
+							
+						Case IDC_BTN_BROWSE
+							BrowseButton_OnClick(pParam, hWin)
+							
+						Case IDC_BTN_PASTE
+							PasteButton_OnClick(pParam, hWin)
+							
+						Case IDC_BTN_COPY
+							CopyButton_OnClick(pParam, hWin)
+							
+						Case Else
+							Return False
+							
+					End Select
 					
-				Case IDC_BTN_BROWSE
-					BrowseButton_OnClick(pParam, hWin)
-					
-				Case IDC_BTN_PASTE
-					PasteButton_OnClick(pParam, hWin)
-					
-				Case IDC_BTN_COPY
-					CopyButton_OnClick(pParam, hWin)
+				Case 1
+					' Accelerator
+					Return False
 					
 				Case Else
 					Return False
