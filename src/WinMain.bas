@@ -179,6 +179,7 @@ Private Sub HttpRestFormCleanUp( _
 	If this->FileHandle <> INVALID_HANDLE_VALUE Then
 		CloseHandle(this->FileHandle)
 		this->FileHandle = INVALID_HANDLE_VALUE
+		this->liFileSize.QuadPart = 0
 	End If
 	
 	If this->CRequest.AllHeaders Then
@@ -290,6 +291,10 @@ End Sub
 Private Function HttpRestFormSendFile( _
 		ByVal this As HttpRestForm Ptr _
 	)As HRESULT
+	
+	If this->MapFileHandle = NULL Then
+		Return S_OK
+	End If
 	
 	Dim PieceSize As LARGE_INTEGER = Any
 	
@@ -1311,92 +1316,85 @@ Private Sub IDOK_OnClick( _
 				@bufFileName.szText(0), _
 				MAX_PATH _
 			)
-			If FileNameLength = 0 Then
-				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_FILENAMEMUSTBE)
-				Exit Sub
-			End If
 			
-			this->FileHandle = CreateFile( _
-				@bufFileName.szText(0), _
-				GENERIC_READ, _
-				FILE_SHARE_READ, _
-				NULL, _
-				OPEN_EXISTING, _
-				FILE_ATTRIBUTE_NORMAL, _
-				NULL _
-			)
-			If this->FileHandle = INVALID_HANDLE_VALUE Then
+			If FileNameLength Then
+				this->FileHandle = CreateFile( _
+					@bufFileName.szText(0), _
+					GENERIC_READ, _
+					FILE_SHARE_READ, _
+					NULL, _
+					OPEN_EXISTING, _
+					FILE_ATTRIBUTE_NORMAL, _
+					NULL _
+				)
+				
+				If this->FileHandle = INVALID_HANDLE_VALUE Then
+					Dim dwError As DWORD = GetLastError()
+					HttpRestFormCleanUp(this)
+					DisplayError(this->hInst, hWin, dwError, IDS_CANNOTOPENFILE)
+					Exit Sub
+				End If
+				
+				this->liFileSize.HighPart = 0
+				this->liFileSize.LowPart = GetFileSize(this->FileHandle, @this->liFileSize.HighPart)
+				
 				Dim dwError As DWORD = GetLastError()
-				HttpRestFormCleanUp(this)
-				DisplayError(this->hInst, hWin, dwError, IDS_CANNOTOPENFILE)
-				Exit Sub
+				If this->liFileSize.LowPart = INVALID_FILE_SIZE Then
+					If dwError <> NO_ERROR Then
+						HttpRestFormCleanUp(this)
+						DisplayError(this->hInst, hWin, dwError, IDS_CANNOTGETFILESIZE)
+						Exit Sub
+					End If
+				End If
 			End If
 		End If
 	End Scope
 	
 	' Create File Mapping Object
 	Scope
-		this->liFileSize.HighPart = 0
-		this->liFileSize.LowPart = GetFileSize(this->FileHandle, @this->liFileSize.HighPart)
-		Scope
-			Dim dwError As DWORD = GetLastError()
-			If this->liFileSize.LowPart = INVALID_FILE_SIZE Then
-				If dwError <> NO_ERROR Then
+		If this->liFileSize.QuadPart Then
+			
+			Scope
+				Const FormatString = __TEXT(!"%ld")
+				
+				Dim buf As ErrorBuffer = Any
+				Dim Length As Long = wsprintf( _
+					@buf.szText(0), _
+					@FormatString, _
+					this->liFileSize.QuadPart _
+				)
+				
+				Dim cbContentLength As Integer = (Length + 1) * SizeOf(TCHAR)
+				this->CRequest.Headers(RequestHeaders.HeaderContentLength) = HeapAlloc( _
+					this->hHeap, _
+					0, _
+					cbContentLength _
+				)
+				If this->CRequest.Headers(RequestHeaders.HeaderContentLength) = NULL Then
 					HttpRestFormCleanUp(this)
-					DisplayError(this->hInst, hWin, dwError, IDS_CANNOTGETFILESIZE)
+					DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
 					Exit Sub
 				End If
-			End If
-		End Scope
-		
-		If this->liFileSize.LowPart = 0 Then
-			If this->liFileSize.HighPart = 0 Then
+				
+				lstrcpy( _
+					this->CRequest.Headers(RequestHeaders.HeaderContentLength), _
+					@buf.szText(0) _
+				)
+			End Scope
+			
+			this->MapFileHandle = CreateFileMapping( _
+				this->FileHandle, _
+				NULL, _
+				PAGE_READONLY, _
+				0, 0, _
+				NULL _
+			)
+			If this->MapFileHandle = NULL Then
+				Dim dwError As DWORD = GetLastError()
 				HttpRestFormCleanUp(this)
-				DisplayError(this->hInst, hWin, ERROR_OPEN_FAILED, IDS_FILESIZEZERO)
+				DisplayError(this->hInst, hWin, dwError, IDS_FILEMAPPING)
 				Exit Sub
 			End If
-		End If
-		
-		Scope
-			Const FormatString = __TEXT(!"%ld")
-			
-			Dim buf As ErrorBuffer = Any
-			Dim Length As Long = wsprintf( _
-				@buf.szText(0), _
-				@FormatString, _
-				this->liFileSize.QuadPart _
-			)
-			
-			Dim cbContentLength As Integer = (Length + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderContentLength) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbContentLength _
-			)
-			If this->CRequest.Headers(RequestHeaders.HeaderContentLength) = NULL Then
-				HttpRestFormCleanUp(this)
-				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
-				Exit Sub
-			End If
-			
-			lstrcpy( _
-				this->CRequest.Headers(RequestHeaders.HeaderContentLength), _
-				@buf.szText(0) _
-			)
-		End Scope
-		
-		this->MapFileHandle = CreateFileMapping( _
-			this->FileHandle, _
-			NULL, _
-			PAGE_READONLY, _
-			0, 0, _
-			NULL _
-		)
-		If this->MapFileHandle = NULL Then
-			Dim dwError As DWORD = GetLastError()
-			HttpRestFormCleanUp(this)
-			DisplayError(this->hInst, hWin, dwError, IDS_FILEMAPPING)
-			Exit Sub
 		End If
 	End Scope
 	
