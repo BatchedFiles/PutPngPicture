@@ -1511,54 +1511,56 @@ Private Sub BrowseButton_OnClick( _
 		ByVal hWin As HWND _
 	)
 	
-	Dim FileFilter As ResourceStringBuffer = Any
-	LoadString( _
-		this->hInst, _
-		IDS_FILTER, _
-		@FileFilter.szText(0), _
-		RESOURCE_STRING_BUFFER_CAPACITY _
-	)
-	
-	Dim Caption As ResourceStringBuffer = Any
-	LoadString( _
-		this->hInst, _
-		IDS_SELECTFILE, _
-		@Caption.szText(0), _
-		RESOURCE_STRING_BUFFER_CAPACITY _
-	)
-	
 	Dim buf As FileNameBuffer = Any
 	buf.szText(0) = 0
 	
 	Dim fn As OPENFILENAME = Any
-	With fn
-		' HACK for win95
-		.lStructSize = SizeOf(OPENFILENAME) - SizeOf(Any Ptr) - SizeOf(DWORD) - SizeOf(DWORD)
-		.hwndOwner = hWin
-		.hInstance = this->hInst
-		.lpstrFilter = @FileFilter.szText(0)
-		.lpstrCustomFilter = NULL
-		.nMaxCustFilter = 0
-		.nFilterIndex = 1
-		.lpstrFile = @buf.szText(0)
-		.nMaxFile = MAX_PATH
-		.lpstrFileTitle = NULL
-		.nMaxFileTitle = 0
-		.lpstrInitialDir = NULL
-		.lpstrTitle = @Caption.szText(0)
-		.Flags = 0
-		.nFileOffset = 0
-		.nFileExtension = 0
-		.lpstrDefExt = NULL
-		.lCustData = 0
-		.lpfnHook = NULL
-		.lpTemplateName = NULL
-		' .lpEditInfo = NULL
-		' .lpstrPrompt = NULL
-		.pvReserved = NULL
-		.dwReserved = 0
-		.FlagsEx = 0
-	End With
+	Scope
+		Dim FileFilter As ResourceStringBuffer = Any
+		LoadString( _
+			this->hInst, _
+			IDS_FILTER, _
+			@FileFilter.szText(0), _
+			RESOURCE_STRING_BUFFER_CAPACITY _
+		)
+		
+		Dim Caption As ResourceStringBuffer = Any
+		LoadString( _
+			this->hInst, _
+			IDS_SELECTFILE, _
+			@Caption.szText(0), _
+			RESOURCE_STRING_BUFFER_CAPACITY _
+		)
+		
+		With fn
+			' HACK for win95
+			.lStructSize = SizeOf(OPENFILENAME) - SizeOf(fn.pvReserved) - SizeOf(fn.dwReserved) - SizeOf(fn.FlagsEx)
+			.hwndOwner = hWin
+			.hInstance = this->hInst
+			.lpstrFilter = @FileFilter.szText(0)
+			.lpstrCustomFilter = NULL
+			.nMaxCustFilter = 0
+			.nFilterIndex = 1
+			.lpstrFile = @buf.szText(0)
+			.nMaxFile = MAX_PATH
+			.lpstrFileTitle = NULL
+			.nMaxFileTitle = 0
+			.lpstrInitialDir = NULL
+			.lpstrTitle = @Caption.szText(0)
+			.Flags = 0
+			.nFileOffset = 0
+			.nFileExtension = 0
+			.lpstrDefExt = NULL
+			.lCustData = 0
+			.lpfnHook = NULL
+			.lpTemplateName = NULL
+			' .lpEditInfo = NULL
+			' .lpstrPrompt = NULL
+			.pvReserved = NULL
+			.dwReserved = 0
+			.FlagsEx = 0
+		End With
+	End Scope
 	
 	Dim resGetFile As BOOL = GetOpenFileName(@fn)
 	
