@@ -1506,61 +1506,70 @@ Private Sub IDOK_OnClick( _
 	
 End Sub
 
+Private Sub FillOpenFileName( _
+		ByVal pfn As OPENFILENAME Ptr, _
+		ByVal pbuf As TCHAR Ptr, _
+		ByVal hInst As HINSTANCE, _
+		ByVal hWin As HWND _
+	)
+	
+	Dim FileFilter As ResourceStringBuffer = Any
+	LoadString( _
+		hInst, _
+		IDS_FILTER, _
+		@FileFilter.szText(0), _
+		RESOURCE_STRING_BUFFER_CAPACITY _
+	)
+	
+	Dim Caption As ResourceStringBuffer = Any
+	LoadString( _
+		hInst, _
+		IDS_SELECTFILE, _
+		@Caption.szText(0), _
+		RESOURCE_STRING_BUFFER_CAPACITY _
+	)
+	
+	pbuf[0] = 0
+	
+	' HACK for win95
+	Dim dwSize As DWORD = SizeOf(OPENFILENAME) - SizeOf(pfn->pvReserved) - SizeOf(pfn->dwReserved) - SizeOf(pfn->FlagsEx)
+	pfn->lStructSize = dwSize
+	pfn->hwndOwner = hWin
+	pfn->hInstance = hInst
+	pfn->lpstrFilter = @FileFilter.szText(0)
+	pfn->lpstrCustomFilter = NULL
+	pfn->nMaxCustFilter = 0
+	pfn->nFilterIndex = 1
+	pfn->lpstrFile = pbuf
+	pfn->nMaxFile = MAX_PATH
+	pfn->lpstrFileTitle = NULL
+	pfn->nMaxFileTitle = 0
+	pfn->lpstrInitialDir = NULL
+	pfn->lpstrTitle = @Caption.szText(0)
+	pfn->Flags = 0
+	pfn->nFileOffset = 0
+	pfn->nFileExtension = 0
+	pfn->lpstrDefExt = NULL
+	pfn->lCustData = 0
+	pfn->lpfnHook = NULL
+	pfn->lpTemplateName = NULL
+	' pfn->lpEditInfo = NULL
+	' pfn->lpstrPrompt = NULL
+	pfn->pvReserved = NULL
+	pfn->dwReserved = 0
+	pfn->FlagsEx = 0
+	
+End Sub
+
 Private Sub BrowseButton_OnClick( _
 		ByVal this As HttpRestForm Ptr, _
 		ByVal hWin As HWND _
 	)
 	
 	Dim buf As FileNameBuffer = Any
-	buf.szText(0) = 0
 	
 	Dim fn As OPENFILENAME = Any
-	Scope
-		Dim FileFilter As ResourceStringBuffer = Any
-		LoadString( _
-			this->hInst, _
-			IDS_FILTER, _
-			@FileFilter.szText(0), _
-			RESOURCE_STRING_BUFFER_CAPACITY _
-		)
-		
-		Dim Caption As ResourceStringBuffer = Any
-		LoadString( _
-			this->hInst, _
-			IDS_SELECTFILE, _
-			@Caption.szText(0), _
-			RESOURCE_STRING_BUFFER_CAPACITY _
-		)
-		
-		With fn
-			' HACK for win95
-			.lStructSize = SizeOf(OPENFILENAME) - SizeOf(fn.pvReserved) - SizeOf(fn.dwReserved) - SizeOf(fn.FlagsEx)
-			.hwndOwner = hWin
-			.hInstance = this->hInst
-			.lpstrFilter = @FileFilter.szText(0)
-			.lpstrCustomFilter = NULL
-			.nMaxCustFilter = 0
-			.nFilterIndex = 1
-			.lpstrFile = @buf.szText(0)
-			.nMaxFile = MAX_PATH
-			.lpstrFileTitle = NULL
-			.nMaxFileTitle = 0
-			.lpstrInitialDir = NULL
-			.lpstrTitle = @Caption.szText(0)
-			.Flags = 0
-			.nFileOffset = 0
-			.nFileExtension = 0
-			.lpstrDefExt = NULL
-			.lCustData = 0
-			.lpfnHook = NULL
-			.lpTemplateName = NULL
-			' .lpEditInfo = NULL
-			' .lpstrPrompt = NULL
-			.pvReserved = NULL
-			.dwReserved = 0
-			.FlagsEx = 0
-		End With
-	End Scope
+	FillOpenFileName(@fn, @buf.szText(0), this->hInst, hWin)
 	
 	Dim resGetFile As BOOL = GetOpenFileName(@fn)
 	
