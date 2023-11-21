@@ -1335,16 +1335,19 @@ Private Sub IDOK_OnClick( _
 					Exit Sub
 				End If
 				
-				this->liFileSize.HighPart = 0
-				this->liFileSize.LowPart = GetFileSize(this->FileHandle, @this->liFileSize.HighPart)
-				
+			End If
+		End If
+		
+		If this->FileHandle <> INVALID_HANDLE_VALUE Then
+			this->liFileSize.HighPart = 0
+			this->liFileSize.LowPart = GetFileSize(this->FileHandle, @this->liFileSize.HighPart)
+			
+			If this->liFileSize.LowPart = INVALID_FILE_SIZE Then
 				Dim dwError As DWORD = GetLastError()
-				If this->liFileSize.LowPart = INVALID_FILE_SIZE Then
-					If dwError <> NO_ERROR Then
-						HttpRestFormCleanUp(this)
-						DisplayError(this->hInst, hWin, dwError, IDS_CANNOTGETFILESIZE)
-						Exit Sub
-					End If
+				If dwError <> NO_ERROR Then
+					HttpRestFormCleanUp(this)
+					DisplayError(this->hInst, hWin, dwError, IDS_CANNOTGETFILESIZE)
+					Exit Sub
 				End If
 			End If
 		End If
