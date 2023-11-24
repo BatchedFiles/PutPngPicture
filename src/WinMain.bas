@@ -2008,6 +2008,32 @@ Private Sub DialogMain_OnDragDropFile( _
 	
 End Sub
 
+Private Sub TxtServer_Changed( _
+		ByVal this As HttpRestForm Ptr, _
+		ByVal hWin As HWND _
+	)
+	
+	Dim hwndServer As HWND = GetDlgItem(hWin, IDC_EDT_SERVER)
+	Dim hwndResource As HWND = GetDlgItem(hWin, IDC_EDT_RESOURCE)
+	Dim hwndVerb As HWND = GetDlgItem(hWin, IDC_EDT_VERB)
+	
+	Dim LengthServer As Integer = GetWindowTextLength(hwndServer)
+	Dim LengthResource As Integer = GetWindowTextLength(hwndResource)
+	Dim LengthVerb As Integer = GetWindowTextLength(hwndVerb)
+	
+	If LengthServer Then
+		If LengthResource Then
+			If LengthVerb Then
+				EnableDialogItem(hWin, IDOK)
+				Exit Sub
+			End If
+		End If
+	End If
+	
+	DisableDialogItem(hWin, IDOK)
+	
+End Sub
+
 Private Function InputDataDialogProc( _
 		ByVal hWin As HWND, _
 		ByVal uMsg As UINT, _
@@ -2061,9 +2087,27 @@ Private Function InputDataDialogProc( _
 							
 					End Select
 					
-				Case 1
+				' Case 1
 					' Accelerator
-					Return False
+					' Return False
+					
+				Case EN_CHANGE
+					
+					Select Case ControlId
+						
+						Case IDC_EDT_SERVER
+							TxtServer_Changed(pParam, hWin)
+							
+						Case IDC_EDT_RESOURCE
+							TxtServer_Changed(pParam, hWin)
+							
+						Case IDC_EDT_VERB
+							TxtServer_Changed(pParam, hWin)
+							
+						Case Else
+							Return False
+							
+					End Select
 					
 				Case Else
 					Return False
