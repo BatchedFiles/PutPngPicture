@@ -175,8 +175,8 @@ $(OBJ_RELEASE_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).c: src$(PATH_SEP)Registry.bi
 OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
 OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
 
-$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)manifest.xml src$(PATH_SEP)Layout.RH src$(PATH_SEP)Resources.RH
-$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)manifest.xml src$(PATH_SEP)Layout.RH src$(PATH_SEP)Resources.RH
+$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)app.ico src$(PATH_SEP)Layout.RH src$(PATH_SEP)manifest.xml src$(PATH_SEP)Resources.RC src$(PATH_SEP)Resources.RH
+$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)app.ico src$(PATH_SEP)Layout.RH src$(PATH_SEP)manifest.xml src$(PATH_SEP)Resources.RC src$(PATH_SEP)Resources.RH
 
 OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).o
 OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).o
