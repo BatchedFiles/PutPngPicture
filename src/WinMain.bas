@@ -45,11 +45,12 @@ Enum RequestHeaders
 	HeaderConnection
 	HeaderContentLength
 	HeaderContentType
+	HeaderExpect
 	HeaderHost
 	HeaderUserAgent
 End Enum
 
-Const RequestHeadersLength = 7
+Const RequestHeadersLength = 8
 
 Type ClientRequest
 	RequestLine As ZString Ptr
@@ -126,6 +127,10 @@ Private Function HeaderNameToString( _
 			
 		Case RequestHeaders.HeaderContentType
 			Const HeaderString = __TEXT("Content-Type")
+			Return @HeaderString
+			
+		Case RequestHeaders.HeaderExpect
+			Const HeaderString = __TEXT("Expect")
 			Return @HeaderString
 			
 		Case RequestHeaders.HeaderHost
@@ -1237,6 +1242,27 @@ Private Sub IDOK_OnClick( _
 			lstrcpy( _
 				this->CRequest.Headers(RequestHeaders.HeaderContentType), _
 				@bufContentType.szText(0) _
+			)
+		End Scope
+		
+		' Create Expect Header
+		Scope
+			Const Expect = __TEXT("100-continue")
+			Dim cbBytesExpect As Integer = (Len(Expect) + 1) * SizeOf(TCHAR)
+			this->CRequest.Headers(RequestHeaders.HeaderExpect) = HeapAlloc( _
+				this->hHeap, _
+				0, _
+				cbBytesExpect _
+			)
+			If this->CRequest.Headers(RequestHeaders.HeaderExpect) = NULL Then
+				HttpRestFormCleanUp(this)
+				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
+				Exit Sub
+			End If
+			
+			lstrcpy( _
+				this->CRequest.Headers(RequestHeaders.HeaderExpect), _
+				@Expect _
 			)
 		End Scope
 		
