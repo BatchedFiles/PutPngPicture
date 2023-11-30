@@ -988,9 +988,9 @@ Private Sub FillVerbsVector( _
 		ByVal vecVerbs As VerbsVector Ptr _
 	)
 	
+	Const PutVerbString = __TEXT("PUT")
 	Const GetVerbString = __TEXT("GET")
 	Const HeadVerbString = __TEXT("HEAD")
-	Const PutVerbString = __TEXT("PUT")
 	Const TraceVerbString = __TEXT("TRACE")
 	Const OptionsVerbString = __TEXT("OPTIONS")
 	Const DeleteVerbString = __TEXT("DELETE")
@@ -1028,7 +1028,8 @@ Private Sub DialogMain_OnLoad( _
 		FillVerbsVector(@vecVerbs)
 		
 		For i As Integer = LBound(vecVerbs.Verbs) To UBound(vecVerbs.Verbs)
-			ComboBox_AddString(hwndCombo, vecVerbs.Verbs(i))
+			Dim p As TCHAR Ptr = vecVerbs.Verbs(i)
+			ComboBox_AddString(hwndCombo, p)
 		Next
 		
 		ComboBox_SetCurSel(hwndCombo, 0)
