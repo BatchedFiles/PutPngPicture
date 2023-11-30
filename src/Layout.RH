@@ -43,6 +43,7 @@
 
 // width of longest item + 30%
 #define COMBOBOX_WIDTH 
+// add N to height for Win95
 #define COMBOBOX_HEIGHT 14
 
 // width of longest item + 30%
