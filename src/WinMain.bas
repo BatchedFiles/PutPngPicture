@@ -81,6 +81,10 @@ Type HttpRestForm
 	CRequest As ClientRequest
 End Type
 
+Type VerbsVector
+	Verbs(6) As TCHAR Ptr
+End Type
+
 Const RESOURCE_STRING_BUFFER_CAPACITY = 255
 
 Type ResourceStringBuffer
@@ -968,7 +972,7 @@ Private Sub FillSettingsVector( _
 	
 	pVec->Vec(2).Key = @VerbKeyString
 	pVec->Vec(2).Value = @pMem->Verb.szText(0)
-	pVec->Vec(2).ControlId = IDC_EDT_VERB
+	pVec->Vec(2).ControlId = IDC_CBB_VERB
 	
 	pVec->Vec(3).Key = @FileKeyString
 	pVec->Vec(3).Value = @pMem->File.szText(0)
@@ -977,6 +981,28 @@ Private Sub FillSettingsVector( _
 	pVec->Vec(4).Key = @ContentTypeKeyString
 	pVec->Vec(4).Value = @pMem->ContentType.szText(0)
 	pVec->Vec(4).ControlId = IDC_EDT_TYPE
+	
+End Sub
+
+Private Sub FillVerbsVector( _
+		ByVal vecVerbs As VerbsVector Ptr _
+	)
+	
+	Const GetVerbString = __TEXT("GET")
+	Const HeadVerbString = __TEXT("HEAD")
+	Const PutVerbString = __TEXT("PUT")
+	Const TraceVerbString = __TEXT("TRACE")
+	Const OptionsVerbString = __TEXT("OPTIONS")
+	Const DeleteVerbString = __TEXT("DELETE")
+	Const PostVerbString = __TEXT("POST")
+	
+	vecVerbs->Verbs(0) = @PutVerbString
+	vecVerbs->Verbs(1) = @GetVerbString
+	vecVerbs->Verbs(2) = @HeadVerbString
+	vecVerbs->Verbs(3) = @TraceVerbString
+	vecVerbs->Verbs(4) = @OptionsVerbString
+	vecVerbs->Verbs(5) = @DeleteVerbString
+	vecVerbs->Verbs(6) = @PostVerbString
 	
 End Sub
 
@@ -993,6 +1019,19 @@ Private Sub DialogMain_OnLoad( _
 		Dim hcn As HICON = LoadIcon(this->hInst, MAKEINTRESOURCE(IDI_MAIN))
 		SendMessage(hWin, WM_SETICON, ICON_SMALL, Cast(LPARAM, hcn))
 		SendMessage(hWin, WM_SETICON, ICON_BIG, Cast(LPARAM, hcn))
+	End Scope
+	
+	Scope
+		Dim hwndCombo As HWND = GetDlgItem(hWin, IDC_CBB_VERB)
+		
+		Dim vecVerbs As VerbsVector = Any
+		FillVerbsVector(@vecVerbs)
+		
+		For i As Integer = LBound(vecVerbs.Verbs) To UBound(vecVerbs.Verbs)
+			ComboBox_AddString(hwndCombo, vecVerbs.Verbs(i))
+		Next
+		
+		ComboBox_SetCurSel(hwndCombo, 0)
 	End Scope
 	
 	Scope
@@ -1054,7 +1093,7 @@ Private Sub IDOK_OnClick( _
 			Dim bufVerb As FileNameBuffer = Any
 			Dim VerbLength As Long = GetDlgItemText( _
 				hWin, _
-				IDC_EDT_VERB, _
+				IDC_CBB_VERB, _
 				@bufVerb.szText(0), _
 				MAX_PATH _
 			)
@@ -2041,7 +2080,7 @@ Private Sub TxtServer_Changed( _
 	
 	Dim hwndServer As HWND = GetDlgItem(hWin, IDC_EDT_SERVER)
 	Dim hwndResource As HWND = GetDlgItem(hWin, IDC_EDT_RESOURCE)
-	Dim hwndVerb As HWND = GetDlgItem(hWin, IDC_EDT_VERB)
+	Dim hwndVerb As HWND = GetDlgItem(hWin, IDC_CBB_VERB)
 	
 	Dim LengthServer As Integer = GetWindowTextLength(hwndServer)
 	Dim LengthResource As Integer = GetWindowTextLength(hwndResource)
@@ -2127,14 +2166,23 @@ Private Function InputDataDialogProc( _
 						Case IDC_EDT_RESOURCE
 							TxtServer_Changed(pParam, hWin)
 							
-						Case IDC_EDT_VERB
+						Case Else
+							Return False
+							
+					End Select
+					
+				Case CBN_EDITCHANGE
+					
+					Select Case ControlId
+						
+						Case IDC_CBB_VERB
 							TxtServer_Changed(pParam, hWin)
 							
 						Case Else
 							Return False
 							
 					End Select
-					
+							
 				Case Else
 					Return False
 					

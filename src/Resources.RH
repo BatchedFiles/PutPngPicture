@@ -67,7 +67,7 @@
 #define IDC_STC_RESOURCE             10004
 #define IDC_EDT_RESOURCE             10005
 #define IDC_STC_VERB                 10006
-#define IDC_EDT_VERB                 10007
+#define IDC_CBB_VERB                 10007
 #define IDC_STC_FILE                 10008
 #define IDC_EDT_FILE                 10009
 #define IDC_BTN_BROWSE               10010
