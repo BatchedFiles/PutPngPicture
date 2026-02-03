@@ -8,7 +8,7 @@
 				"PROCESSOR_ARCHITECTURE=AMD64",
 				"MARCH=native",
 				/* "FBC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\fbc64.exe\"", */
-				"FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\src\\compiler\\fbc64_icase.exe\"",
+				"FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\bin\\Release\\x64\\fbc64.exe\"",
 				"CC=\"C:\\Program Files\\LLVM\\bin\\clang.exe\"",
 				"AS=\"C:\\LLVM\\bin\\as.exe\"",
 				"LD=\"C:\\Program Files\\LLVM\\bin\\ld.lld.exe\"",
@@ -54,16 +54,15 @@
 				"PROCESSOR_ARCHITECTURE=AMD64",
 				"MARCH=native",
 				/* "FBC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\fbc64.exe\"", */
-				"FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\src\\compiler\\fbc64_icase.exe\"",
+				"FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\bin\\Release\\x64\\fbc64.exe\"",
 				"CC=\"C:\\Program Files\\mingw64\\bin\\gcc.exe\"",
 				"AS=\"C:\\Program Files\\mingw64\\bin\\as.exe\"",
 				"LD=\"C:\\Program Files\\mingw64\\bin\\ld.exe\"",
 				"AR=\"C:\\Program Files\\mingw64\\bin\\ar.exe\"",
 				"GORC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\bin\\win64\\GoRC.exe\"",
-				"DLL_TOOL=\"C:\\Program Files\\mingw64\\bin\\dlltool.exe\"",
-				"LIB_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\lib\\win64\"",
-				"INC_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\inc\"",
-				"LD_SCRIPT=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\lib\\win64\\fbextra.x\"",
+				"LIB_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\"",
+				"INC_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\inc\"",
+				"LD_SCRIPT=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\\fbextra.x\"",
 				"USE_RUNTIME=FALSE"
 			],
 			"makePath": "C:\\Program Files\\mingw64\\bin\\mingw32-make.exe"
@@ -82,10 +81,9 @@
 				"LD=\"C:\\Program Files (x86)\\mingw32\\bin\\ld.exe\"",
 				"AR=\"C:\\Program Files (x86)\\mingw32\\bin\\ar.exe\"",
 				"GORC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\bin\\win32\\GoRC.exe\"",
-				"DLL_TOOL=\"C:\\Program Files (x86)\\mingw32\\bin\\dlltool.exe\"",
-				"LIB_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\lib\\win32\"",
-				"INC_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\inc\"",
-				"LD_SCRIPT=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\lib\\win32\\fbextra.x\"",
+				"LIB_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\"",
+				"INC_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\inc\"",
+				"LD_SCRIPT=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\\fbextra.x\"",
 				"USE_RUNTIME=FALSE"
 			],
 			"makePath": "C:\\Program Files\\mingw64\\bin\\mingw32-make.exe"
