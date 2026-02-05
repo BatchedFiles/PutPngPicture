@@ -35,12 +35,12 @@ End Enum
 Const RequestHeadersLength = 8
 
 Type ClientRequest
-	RequestLine As ZString Ptr
+	RequestLine As TCHAR Ptr
 	ServerAddress As HOSTENT Ptr
 	ServerPort As Integer
-	AllHeaders As ZString Ptr
+	AllHeaders As TCHAR Ptr
 	AllHeadersLength As Integer
-	Headers(RequestHeadersLength - 1) As ZString Ptr
+	Headers(RequestHeadersLength - 1) As TCHAR Ptr
 End Type
 
 Enum FileType
@@ -1557,12 +1557,13 @@ Private Sub IDOK_OnClick( _
 
 End Sub
 
-Private Sub FillOpenFileName( _
-		ByVal pfn As OPENFILENAME Ptr, _
-		ByVal pbuf As TCHAR Ptr, _
+Private Function OpenFileNameShowDialog( _
 		ByVal hInst As HINSTANCE, _
-		ByVal hWin As HWND _
-	)
+		ByVal hOwner As HWND, _
+		ByVal pbuf As TCHAR Ptr, _
+		ByVal pFileOffset As Integer Ptr, _
+		ByVal pFileExtension As Integer Ptr _
+	) As Boolean
 
 	Dim FileFilter As ResourceStringBuffer = Any
 	LoadString( _
@@ -1582,35 +1583,62 @@ Private Sub FillOpenFileName( _
 
 	pbuf[0] = 0
 
+#if WINVER >= &h0500
+	Dim dwSize As DWORD = SizeOf(OPENFILENAME)
+#else
 	' HACK for win95
-	Dim dwSize As DWORD = SizeOf(OPENFILENAME) - SizeOf(pfn->pvReserved) - SizeOf(pfn->dwReserved) - SizeOf(pfn->FlagsEx)
-	pfn->lStructSize = dwSize
-	pfn->hwndOwner = hWin
-	pfn->hInstance = hInst
-	pfn->lpstrFilter = @FileFilter.szText(0)
-	pfn->lpstrCustomFilter = NULL
-	pfn->nMaxCustFilter = 0
-	pfn->nFilterIndex = 1
-	pfn->lpstrFile = pbuf
-	pfn->nMaxFile = MAX_PATH
-	pfn->lpstrFileTitle = NULL
-	pfn->nMaxFileTitle = 0
-	pfn->lpstrInitialDir = NULL
-	pfn->lpstrTitle = @Caption.szText(0)
-	pfn->Flags = 0
-	pfn->nFileOffset = 0
-	pfn->nFileExtension = 0
-	pfn->lpstrDefExt = NULL
-	pfn->lCustData = 0
-	pfn->lpfnHook = NULL
-	pfn->lpTemplateName = NULL
-	' pfn->lpEditInfo = NULL
-	' pfn->lpstrPrompt = NULL
-	pfn->pvReserved = NULL
-	pfn->dwReserved = 0
-	pfn->FlagsEx = 0
+	Dim dwSize As DWORD = OPENFILENAME_SIZE_VERSION_400
+#endif
 
-End Sub
+	Dim fn As OPENFILENAME = Any
+	ZeroMemory(@fn, dwSize)
+
+	fn.lStructSize = dwSize
+	fn.hwndOwner = hOwner
+	' fn.hInstance = NULL
+	fn.lpstrFilter = @FileFilter.szText(0)
+	' fn.lpstrCustomFilter = NULL
+	' fn.nMaxCustFilter = 0
+	fn.nFilterIndex = 1
+	fn.lpstrFile = pbuf
+	fn.nMaxFile = MAX_PATH
+	' fn.lpstrFileTitle = NULL
+	' fn.nMaxFileTitle = 0
+	' fn.lpstrInitialDir = NULL
+	fn.lpstrTitle = @Caption.szText(0)
+	fn.Flags = OFN_FILEMUSTEXIST Or OFN_PATHMUSTEXIST
+	' fn.nFileOffset = 0
+	' fn.nFileExtension = 0
+	' fn.lpstrDefExt = NULL
+	' fn.lCustData = 0
+	' fn.lpfnHook = NULL
+	' fn.lpTemplateName = NULL
+	' fn.lpEditInfo = NULL
+	' fn.lpstrPrompt = NULL
+	' fn.pvReserved = NULL
+	' fn.dwReserved = 0
+	' fn.FlagsEx = 0
+
+	Dim resGetFile As BOOL = GetOpenFileName(@fn)
+
+	If resGetFile = 0 Then
+		Dim dwError As DWORD = CommDlgExtendedError()
+		If dwError Then
+			' DisplayError(this->hInst, hWin, dwError, IDS_OPENFILENAME)
+			Return False
+		End If
+	End If
+
+	*pFileOffset = CInt(fn.nFileOffset)
+	*pFileExtension = CInt(fn.nFileExtension)
+
+	If pbuf[0] = 0 Then
+		Return False
+	End If
+
+	Return True
+
+End Function
 
 Private Sub BrowseButton_OnClick( _
 		ByVal this As HttpRestForm Ptr, _
@@ -1618,22 +1646,22 @@ Private Sub BrowseButton_OnClick( _
 	)
 
 	Dim buf As FileNameBuffer = Any
+	Dim nFileOffset As Integer = Any
+	Dim nFileExtension As Integer = Any
+	Dim resOpen As Boolean = OpenFileNameShowDialog( _
+		this->hInst, _
+		hWin, _
+		@buf.szText(0), _
+		@nFileOffset, _
+		@nFileExtension _
+	)
 
-	Dim fn As OPENFILENAME = Any
-	FillOpenFileName(@fn, @buf.szText(0), this->hInst, hWin)
-
-	Dim resGetFile As BOOL = GetOpenFileName(@fn)
-
-	If resGetFile = 0 Then
-		Dim dwError As DWORD = CommDlgExtendedError()
-		If dwError Then
-			DisplayError(this->hInst, hWin, dwError, IDS_OPENFILENAME)
-			Exit Sub
-		End If
+	If resOpen = False Then
+		Exit Sub
 	End If
 
-	If fn.nFileOffset Then
-		Dim IndexPrev As Integer = fn.nFileOffset - 1
+	If nFileOffset Then
+		Dim IndexPrev As Integer = nFileOffset - 1
 		Dim OldValue As Integer = buf.szText(IndexPrev)
 		buf.szText(IndexPrev) = Asc("/")
 
@@ -1654,8 +1682,8 @@ Private Sub BrowseButton_OnClick( _
 
 	this->IsTemporaryFile = FileType.DiskFile
 
-	If fn.nFileExtension Then
-		Dim ExtensionWithDotOffset As Integer = fn.nFileExtension - 1
+	If nFileExtension Then
+		Dim ExtensionWithDotOffset As Integer = nFileExtension - 1
 		Dim pExt As TCHAR Ptr = @buf.szText(ExtensionWithDotOffset)
 
 		Dim bufContentType As FileNameBuffer = Any
@@ -2232,110 +2260,94 @@ Private Function tWinMain( _
 
 	Dim hrVisualStyles As Integer = EnableVisualStyles()
 
-	If SUCCEEDED(hrVisualStyles) Then
-
-		Dim hWin As HWND = GetDesktopWindow()
-
-		Dim ProcessHeap As HANDLE = GetProcessHeap()
-
-		' We need allocate memory for HttpRestForm
-		' Beekause when main thread is terminated
-		' Thread stack not exists
-		Dim param As HttpRestForm Ptr = HeapAlloc( _
-			ProcessHeap, _
-			0, _
-			SizeOf(HttpRestForm) _
-		)
-
-		If param Then
-
-			Dim hrInitNetwork As HRESULT = NetworkStartUp()
-
-			If FAILED(hrInitNetwork) Then
-				DisplayError(hInst, hWin, hrInitNetwork, IDS_NETWORKINIT)
-			Else
-
-				param->hInst = hInst
-				param->FileHandle = INVALID_HANDLE_VALUE
-				param->MapFileHandle = NULL
-				param->ClientSocket = INVALID_SOCKET
-				param->liFileSize.HighPart = 0
-				param->liFileSize.LowPart = 0
-				param->IsTemporaryFile = FileType.DiskFile
-				param->hHeap = ProcessHeap
-				param->hEvent = CreateEvent(NULL, TRUE, FALSE, NULL)
-
-				ZeroMemory(@param->CRequest, SizeOf(ClientRequest))
-
-				Dim ThreadId As DWORD = Any
-				Dim hThread As HANDLE = CreateThread( _
-					NULL, _
-					0, _
-					@WorkerThread, _
-					param, _
-					0, _
-					@ThreadId _
-				)
-
-				If hThread = NULL Then
-					Dim dwError As DWORD = GetLastError()
-					DisplayError(hInst, hWin, dwError, IDS_THREAD)
-				Else
-
-					CloseHandle(hThread)
-
-					Dim DialogBoxParamResult As INT_PTR = DialogBoxParam( _
-						hInst, _
-						MAKEINTRESOURCE(IDD_DLG_TASKS), _
-						hWin, _
-						@InputDataDialogProc, _
-						Cast(LPARAM, param) _
-					)
-
-					If DialogBoxParamResult = -1 Then
-						Dim dwError As DWORD = GetLastError()
-						DisplayError(hInst, hWin, dwError, IDS_DIALOGMAIN)
-					End If
-
-				End If
-
-				CloseHandle(param->hEvent)
-				NetworkCleanUp()
-			End If
-
-		End If
+	If FAILED(hrVisualStyles) Then
+		Return 1
 	End If
 
-	Return 1
+	Dim hWin As HWND = GetDesktopWindow()
 
-End Function
+	Dim ProcessHeap As HANDLE = GetProcessHeap()
 
-#ifndef WITHOUT_RUNTIME
-Private Function EntryPoint()As Integer
-#else
-Public Function EntryPoint Alias "EntryPoint"()As Integer
-#endif
-
-	Dim hInst As HMODULE = GetModuleHandle(NULL)
-
-	' The program does not process command line parameters
-	Dim Arguments As LPTSTR = NULL
-	Dim RetCode As Integer = tWinMain( _
-		hInst, _
-		NULL, _
-		Arguments, _
-		SW_SHOW _
+	' We need allocate memory for HttpRestForm
+	' Beekause when main thread is terminated
+	' Thread stack not exists
+	Dim param As HttpRestForm Ptr = HeapAlloc( _
+		ProcessHeap, _
+		0, _
+		SizeOf(HttpRestForm) _
 	)
 
-	#ifdef WITHOUT_RUNTIME
-		ExitProcess(RetCode)
-	#endif
+	If param Then
 
-	Return RetCode
+		Dim hrInitNetwork As HRESULT = NetworkStartUp()
+
+		If FAILED(hrInitNetwork) Then
+			DisplayError(hInst, hWin, hrInitNetwork, IDS_NETWORKINIT)
+		Else
+
+			param->hInst = hInst
+			param->FileHandle = INVALID_HANDLE_VALUE
+			param->MapFileHandle = NULL
+			param->ClientSocket = INVALID_SOCKET
+			param->liFileSize.HighPart = 0
+			param->liFileSize.LowPart = 0
+			param->IsTemporaryFile = FileType.DiskFile
+			param->hHeap = ProcessHeap
+			param->hEvent = CreateEvent(NULL, TRUE, FALSE, NULL)
+
+			ZeroMemory(@param->CRequest, SizeOf(ClientRequest))
+
+			Dim ThreadId As DWORD = Any
+			Dim hThread As HANDLE = CreateThread( _
+				NULL, _
+				0, _
+				@WorkerThread, _
+				param, _
+				0, _
+				@ThreadId _
+			)
+
+			If hThread = NULL Then
+				Dim dwError As DWORD = GetLastError()
+				DisplayError(hInst, hWin, dwError, IDS_THREAD)
+			Else
+
+				CloseHandle(hThread)
+
+				Dim DialogBoxParamResult As INT_PTR = DialogBoxParam( _
+					hInst, _
+					MAKEINTRESOURCE(IDD_DLG_TASKS), _
+					hWin, _
+					@InputDataDialogProc, _
+					Cast(LPARAM, param) _
+				)
+
+				If DialogBoxParamResult = -1 Then
+					Dim dwError As DWORD = GetLastError()
+					DisplayError(hInst, hWin, dwError, IDS_DIALOGMAIN)
+				End If
+
+			End If
+
+			CloseHandle(param->hEvent)
+			NetworkCleanUp()
+		End If
+
+	End If
+
+	Return 0
 
 End Function
 
-#ifndef WITHOUT_RUNTIME
-Dim RetCode As Long = CLng(EntryPoint())
+Dim hInst As HMODULE = GetModuleHandle(NULL)
+
+' The program does not process command line parameters
+Dim Arguments As LPTSTR = NULL
+Dim RetCode As Integer = tWinMain( _
+	hInst, _
+	NULL, _
+	Arguments, _
+	SW_SHOW _
+)
+
 End(RetCode)
-#endif
