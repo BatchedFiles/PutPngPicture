@@ -182,13 +182,14 @@ Private Sub HttpRestFormCleanUp( _
 
 End Sub
 
-Private Function idiv64( _
-		ByVal Divisible As LongInt, _
-		ByVal Divisor As LongInt _
-	) As LongInt
+Private Function div64( _
+		ByVal Divisible As ULongInt, _
+		ByVal Divisor As ULongInt _
+	) As ULongInt
 
-	Dim Partial As LongInt = 0
-	Dim tmpDivisible As LongInt = Divisible
+	Dim Partial As ULongInt = 0
+
+	Dim tmpDivisible As ULongInt = Divisible
 
 	Do While tmpDivisible >= Divisor
 		tmpDivisible -= Divisor
@@ -196,6 +197,25 @@ Private Function idiv64( _
 	Loop
 
 	Return Partial
+
+End Function
+
+Private Function idiv64( _
+		ByVal Divisible As LongInt, _
+		ByVal Divisor As LongInt _
+	) As LongInt
+
+	If Divisor < 0 Then
+		Dim Partial As LongInt = idiv64(Divisible, -1 * Divisor)
+		Return -1 * Partial
+	End If
+
+	If Divisible < 0 Then
+		Dim Partial As LongInt = idiv64(-1 * Divisible, Divisor)
+		Return -1 * Partial
+	End If
+
+	Return div64(Divisible, -Divisor)
 
 End Function
 
