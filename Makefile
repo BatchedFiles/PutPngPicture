@@ -2,6 +2,13 @@
 
 all: release debug
 
+# Legends:
+# $@ - target name
+# $^ - set of dependent files
+# $< - name of first dependency
+# % - pattern
+# $* - variable pattern
+
 FBC ?= fbc.exe
 CC ?= gcc.exe
 AS ?= as.exe
@@ -12,29 +19,29 @@ DLL_TOOL ?= dlltool.exe
 LIB_DIR ?=
 INC_DIR ?=
 LD_SCRIPT ?=
-FLTO ?=
 
 TARGET_TRIPLET ?=
-MARCH ?= native
 
 USE_RUNTIME ?= TRUE
-FBC_VER ?= _FBC1100
+USE_CRUNTIME ?= TRUE
+USE_LD_LINKER ?= TRUE
+FBC_VER ?= _FBC1101
 GCC_VER ?= _GCC0930
 ifeq ($(USE_RUNTIME),TRUE)
 RUNTIME = _RT
 else
 RUNTIME = _WRT
 endif
-FILE_SUFFIX=$(GCC_VER)$(FBC_VER)$(RUNTIME)
-OUTPUT_FILE_NAME=HttpRest$(FILE_SUFFIX).exe
+OUTPUT_FILE_NAME ?= HttpRest$(FILE_SUFFIX).exe
 
+PARAM_SEP ?= /
 PATH_SEP ?= /
 MOVE_PATH_SEP ?= \\
 
-MOVE_COMMAND ?= cmd.exe /c move /y
-DELETE_COMMAND ?= cmd.exe /c del /f /q
-MKDIR_COMMAND ?= cmd.exe /c mkdir
-SCRIPT_COMMAND ?= cscript.exe //nologo fix-emitted-code.vbs
+MOVE_COMMAND ?= $(ComSpec) $(PARAM_SEP)c move $(PARAM_SEP)y
+DELETE_COMMAND ?= $(ComSpec) $(PARAM_SEP)c del $(PARAM_SEP)f $(PARAM_SEP)q
+MKDIR_COMMAND ?= $(ComSpec) $(PARAM_SEP)c mkdir
+CPREPROCESSOR_COMMAND ?= $(ComSpec) $(PARAM_SEP)c echo no need to fix code
 
 ifeq ($(PROCESSOR_ARCHITECTURE),AMD64)
 BIN_DEBUG_DIR ?= bin$(PATH_SEP)Debug$(PATH_SEP)x64
@@ -45,6 +52,7 @@ BIN_DEBUG_DIR_MOVE ?= bin$(MOVE_PATH_SEP)Debug$(MOVE_PATH_SEP)x64
 BIN_RELEASE_DIR_MOVE ?= bin$(MOVE_PATH_SEP)Release$(MOVE_PATH_SEP)x64
 OBJ_DEBUG_DIR_MOVE ?= obj$(MOVE_PATH_SEP)Debug$(MOVE_PATH_SEP)x64
 OBJ_RELEASE_DIR_MOVE ?= obj$(MOVE_PATH_SEP)Release$(MOVE_PATH_SEP)x64
+MARCH ?= x86-64
 else
 BIN_DEBUG_DIR ?= bin$(PATH_SEP)Debug$(PATH_SEP)x86
 BIN_RELEASE_DIR ?= bin$(PATH_SEP)Release$(PATH_SEP)x86
@@ -54,20 +62,30 @@ BIN_DEBUG_DIR_MOVE ?= bin$(MOVE_PATH_SEP)Debug$(MOVE_PATH_SEP)x86
 BIN_RELEASE_DIR_MOVE ?= bin$(MOVE_PATH_SEP)Release$(MOVE_PATH_SEP)x86
 OBJ_DEBUG_DIR_MOVE ?= obj$(MOVE_PATH_SEP)Debug$(MOVE_PATH_SEP)x86
 OBJ_RELEASE_DIR_MOVE ?= obj$(MOVE_PATH_SEP)Release$(MOVE_PATH_SEP)x86
+MARCH ?= i686
 endif
 
 FBCFLAGS+=-gen gcc
-
+ifeq ($(USE_UNICODE),TRUE)
+FBCFLAGS+=-d UNICODE
+FBCFLAGS+=-d _UNICODE
+endif
+ifneq ($(WINVER),)
+FBCFLAGS+=-d WINVER=$(WINVER)
+endif
+ifneq ($(_WIN32_WINNT),)
+FBCFLAGS+=-d _WIN32_WINNT=$(_WIN32_WINNT)
+endif
+FBCFLAGS+=-m WinMain
 ifeq ($(USE_RUNTIME),TRUE)
-FBCFLAGS+=-m HttpRest
 else
 FBCFLAGS+=-d WITHOUT_RUNTIME
 endif
 FBCFLAGS+=-w error -maxerr 1
-FBCFLAGS+=-i src
 ifneq ($(INC_DIR),)
 FBCFLAGS+=-i "$(INC_DIR)"
 endif
+FBCFLAGS+=-i src
 FBCFLAGS+=-r
 FBCFLAGS+=-s gui
 FBCFLAGS+=-O 0
@@ -81,19 +99,19 @@ CFLAGS+=-m32
 endif
 CFLAGS+=-march=$(MARCH)
 CFLAGS+=-pipe
-CFLAGS+=-Wall -Werror -Wextra
 CFLAGS+=-Wno-unused-label -Wno-unused-function
 CFLAGS+=-Wno-unused-parameter -Wno-unused-variable
 CFLAGS+=-Wno-dollar-in-identifier-extension
 CFLAGS+=-Wno-language-extension-token
 CFLAGS+=-Wno-parentheses-equality
+CFLAGS+=-Wno-builtin-declaration-mismatch
 CFLAGS_DEBUG+=-g -O0
 release: CFLAGS+=$(CFLAGS_RELEASE)
 release: CFLAGS+=-fno-math-errno -fno-exceptions
 release: CFLAGS+=-fno-unwind-tables -fno-asynchronous-unwind-tables
 release: CFLAGS+=-O3 -fno-ident -fdata-sections -ffunction-sections
 ifneq ($(FLTO),)
-release: CFLAGS+=$(FLTO)
+release: CFLAGS+=-flto
 endif
 debug: CFLAGS+=$(CFLAGS_DEBUG)
 
@@ -107,83 +125,114 @@ release: ASFLAGS+=--strip-local-absolute
 debug: ASFLAGS+=$(ASFLAGS_DEBUG)
 
 ifeq ($(PROCESSOR_ARCHITECTURE),AMD64)
-GORCFLAGS+=/machine X64
+GORCFLAGS+=$(PARAM_SEP)machine X64
 endif
-GORCFLAGS+=/ni /o /d FROM_MAKEFILE
-GORCFLAGS_DEBUG=/d DEBUG
+GORCFLAGS+=$(PARAM_SEP)ni
+GORCFLAGS+=$(PARAM_SEP)o
+ifneq ($(WINVER),)
+GORCFLAGS+=$(PARAM_SEP)d WINVER=$(WINVER)
+endif
+ifneq ($(_WIN32_WINNT),)
+GORCFLAGS+=$(PARAM_SEP)d _WIN32_WINNT=$(_WIN32_WINNT)
+endif
+GORCFLAGS_DEBUG=$(PARAM_SEP)d DEBUG
 debug: GORCFLAGS+=$(GORCFLAGS_DEBUG)
 
 ifeq ($(PROCESSOR_ARCHITECTURE),AMD64)
-ifeq ($(USE_RUNTIME),FALSE)
-LDFLAGS+=-e EntryPoint
-endif
-LDFLAGS+=-m i386pep
 else
-ifeq ($(USE_RUNTIME),FALSE)
-LDFLAGS+=-e _EntryPoint@0
 endif
-LDFLAGS+=-m i386pe
-LDFLAGS+=--large-address-aware
+ifeq ($(USE_LD_LINKER),TRUE)
+LDFLAGS+=--subsystem windows
+else
+LDFLAGS+=-Wl,--subsystem,windows
 endif
-LDFLAGS+=-subsystem windows
+ifeq ($(USE_LD_LINKER),TRUE)
 LDFLAGS+=--no-seh --nxcompat
+else
+LDFLAGS+=-Wl,--no-seh -Wl,--nxcompat
+endif
+ifeq ($(USE_RUNTIME),TRUE)
+ifeq ($(USE_LD_LINKER),TRUE)
+LDFLAGS+=--stack 2097152,2097152
+else
+LDFLAGS+=-Wl,--stack 2097152,2097152
+endif
+endif
+ifeq ($(USE_LD_LINKER),TRUE)
+LDFLAGS+=-nostdlib
+else
+LDFLAGS+=-pipe -nostdlib
+endif
 LDFLAGS+=-L .
 LDFLAGS+=-L "$(LIB_DIR)"
 ifneq ($(LD_SCRIPT),)
 LDFLAGS+=-T "$(LD_SCRIPT)"
 endif
+ifeq ($(USE_LD_LINKER),TRUE)
 release: LDFLAGS+=-s --gc-sections
+else
+release: LDFLAGS+=-s -Wl,--gc-sections
+endif
+ifneq ($(FLTO),)
+release: LDFLAGS+=-flto
+endif
 debug: LDFLAGS+=$(LDFLAGS_DEBUG)
 debug: LDLIBS+=$(LDLIBS_DEBUG)
 
-ifeq ($(USE_RUNTIME),TRUE)
-LDLIBSBEGIN+="$(LIB_DIR)\crt2.o"
-LDLIBSBEGIN+="$(LIB_DIR)\crtbegin.o"
-LDLIBSBEGIN+="$(LIB_DIR)\fbrt0.o"
-endif
+LDLIBSBEGIN+=$(OBJ_CRT_START)
+ifeq ($(USE_LD_LINKER),TRUE)
 LDLIBS+=--start-group
-LDLIBS+=-ladvapi32 -lcomctl32 -lcomdlg32 -lcrypt32
-LDLIBS+=-lgdi32 -lgdiplus -lkernel32 -lmswsock
-LDLIBS+=-lole32 -loleaut32 -lshell32 -lshlwapi
-LDLIBS+=-lwsock32 -lws2_32 -luser32
-LDLIBS+=-lmsvcrt
-ifeq ($(USE_RUNTIME),TRUE)
-LDLIBS+=-lfb
-LDLIBS+=-luuid
+else
+LDLIBS+=-Wl,--start-group
 endif
-LDLIBS_DEBUG+=-lgcc -lmingw32 -lmingwex -lmoldname -lgcc_eh
-ifeq ($(USE_RUNTIME),TRUE)
-LDLIBS+=-lgcc -lmingw32 -lmingwex -lmoldname -lgcc_eh
-endif
+LDLIBS+=$(LIBS_OS)
+ifeq ($(USE_LD_LINKER),TRUE)
 LDLIBS+=--end-group
-ifeq ($(USE_RUNTIME),TRUE)
-LDLIBSEND+="$(LIB_DIR)\crtend.o"
+else
+LDLIBS+=-Wl,--end-group
 endif
+LDLIBSEND+=$(OBJ_CRT_END)
+LDLIBS_DEBUG+=$(LIBS_GCC)
 
 OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).o
 OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).o
 
-$(OBJ_DEBUG_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).c: src$(PATH_SEP)Base64.bi
-$(OBJ_RELEASE_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).c: src$(PATH_SEP)Base64.bi
+DEPENDENCIES_1=src$(PATH_SEP)Base64.bas src$(PATH_SEP)Base64.bi
+
+$(OBJ_DEBUG_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).c: $(DEPENDENCIES_1)
+$(OBJ_RELEASE_DIR)$(PATH_SEP)Base64$(FILE_SUFFIX).c: $(DEPENDENCIES_1)
+
+OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)mini-runtime$(FILE_SUFFIX).o
+OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)mini-runtime$(FILE_SUFFIX).o
+
+DEPENDENCIES_2=src$(PATH_SEP)mini-runtime.bas
+
+$(OBJ_DEBUG_DIR)$(PATH_SEP)mini-runtime$(FILE_SUFFIX).c: $(DEPENDENCIES_2)
+$(OBJ_RELEASE_DIR)$(PATH_SEP)mini-runtime$(FILE_SUFFIX).c: $(DEPENDENCIES_2)
 
 OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).o
 OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).o
 
-$(OBJ_DEBUG_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).c: src$(PATH_SEP)Registry.bi
-$(OBJ_RELEASE_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).c: src$(PATH_SEP)Registry.bi
+DEPENDENCIES_3=src$(PATH_SEP)Registry.bas src$(PATH_SEP)Registry.bi
 
-OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
-OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
-
-$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)app.ico src$(PATH_SEP)Layout.RH src$(PATH_SEP)manifest.xml src$(PATH_SEP)Resources.RC src$(PATH_SEP)Resources.RH
-$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: src$(PATH_SEP)app.ico src$(PATH_SEP)Layout.RH src$(PATH_SEP)manifest.xml src$(PATH_SEP)Resources.RC src$(PATH_SEP)Resources.RH
+$(OBJ_DEBUG_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).c: $(DEPENDENCIES_3)
+$(OBJ_RELEASE_DIR)$(PATH_SEP)Registry$(FILE_SUFFIX).c: $(DEPENDENCIES_3)
 
 OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).o
 OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).o
 
-$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Base64.bi src$(PATH_SEP)Registry.bi src$(PATH_SEP)Resources.RH
-$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Base64.bi src$(PATH_SEP)Registry.bi src$(PATH_SEP)Resources.RH
+DEPENDENCIES_4=src$(PATH_SEP)WinMain.bas src$(PATH_SEP)WinMain.bi src$(PATH_SEP)Base64.bi src$(PATH_SEP)Registry.bi src$(PATH_SEP)Resources.RH src$(PATH_SEP)Win95Hack.bi
 
+$(OBJ_DEBUG_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: $(DEPENDENCIES_4)
+$(OBJ_RELEASE_DIR)$(PATH_SEP)WinMain$(FILE_SUFFIX).c: $(DEPENDENCIES_4)
+
+OBJECTFILES_DEBUG+=$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
+OBJECTFILES_RELEASE+=$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj
+
+DEPENDENCIES_5=src$(PATH_SEP)Resources.RC src$(PATH_SEP)app.ico src$(PATH_SEP)Layout.RH src$(PATH_SEP)Resources.RH src$(PATH_SEP)manifest.xml
+
+$(OBJ_DEBUG_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: $(DEPENDENCIES_5)
+$(OBJ_RELEASE_DIR)$(PATH_SEP)Resources$(FILE_SUFFIX).obj: $(DEPENDENCIES_5)
 
 release: $(BIN_RELEASE_DIR)$(PATH_SEP)$(OUTPUT_FILE_NAME)
 
@@ -225,19 +274,19 @@ $(OBJ_RELEASE_DIR)$(PATH_SEP)%$(FILE_SUFFIX).asm: $(OBJ_RELEASE_DIR)$(PATH_SEP)%
 $(OBJ_DEBUG_DIR)$(PATH_SEP)%$(FILE_SUFFIX).asm: $(OBJ_DEBUG_DIR)$(PATH_SEP)%$(FILE_SUFFIX).c
 	$(CC) $(EXTRA_CFLAGS) $(CFLAGS) -o $@ $<
 
+$(OBJ_RELEASE_DIR)$(PATH_SEP)%$(FILE_SUFFIX).obj: src$(PATH_SEP)%.RC
+	$(GORC) $(GORCFLAGS) $(PARAM_SEP)fo $@ $<
+
+$(OBJ_DEBUG_DIR)$(PATH_SEP)%$(FILE_SUFFIX).obj: src$(PATH_SEP)%.RC
+	$(GORC) $(GORCFLAGS) $(PARAM_SEP)fo $@ $<
+
 $(OBJ_RELEASE_DIR)$(PATH_SEP)%$(FILE_SUFFIX).c: src$(PATH_SEP)%.bas
 	$(FBC) $(FBCFLAGS) $<
-	$(SCRIPT_COMMAND) /release src$(MOVE_PATH_SEP)$*.c
+	$(CPREPROCESSOR_COMMAND) -release src$(MOVE_PATH_SEP)$*.c
 	$(MOVE_COMMAND) src$(MOVE_PATH_SEP)$*.c $(OBJ_RELEASE_DIR_MOVE)$(MOVE_PATH_SEP)$*$(FILE_SUFFIX).c
 
 $(OBJ_DEBUG_DIR)$(PATH_SEP)%$(FILE_SUFFIX).c: src$(PATH_SEP)%.bas
 	$(FBC) $(FBCFLAGS) $<
-	$(SCRIPT_COMMAND) /debug src$(MOVE_PATH_SEP)$*.c
+	$(CPREPROCESSOR_COMMAND) -debug src$(MOVE_PATH_SEP)$*.c
 	$(MOVE_COMMAND) src$(MOVE_PATH_SEP)$*.c $(OBJ_DEBUG_DIR_MOVE)$(MOVE_PATH_SEP)$*$(FILE_SUFFIX).c
-
-$(OBJ_RELEASE_DIR)$(PATH_SEP)%$(FILE_SUFFIX).obj: src$(PATH_SEP)%.RC
-	$(GORC) $(GORCFLAGS) /fo $@ $<
-
-$(OBJ_DEBUG_DIR)$(PATH_SEP)%$(FILE_SUFFIX).obj: src$(PATH_SEP)%.RC
-	$(GORC) $(GORCFLAGS) /fo $@ $<
 

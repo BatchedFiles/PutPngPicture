@@ -4,26 +4,30 @@
 		{
 			"label": "Create Makefile",
 			"type": "process",
-			"command": "cscript.exe",
+			"command": "C:\\Programming\\FreeBASIC Projects\\ProgrammingStyle\\bin\\Debug\\x64\\CreateMakefile.exe",
 			"args": [
-				"//nologo",
-				"C:\\Programming\\FreeBASIC Projects\\ProgrammingStyle\\CreateMakefile\\CreateMakefile.vbs",
-				"/out:HttpRest",
+				/* "-makefile", "Makefile", */
+				"-src", "src",
+				"-fbc-path", "C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0",
+				/* include path */
+				/* "-i", "C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\inc", */
+				"-fbc", "fbc64.exe",
+				"-out", "HttpRest",
+				/* Main module filename */
+				"-module", "WinMain",
+				"-exetype", "exe",
+				/* console, windows, native */
+				"-subsystem", "windows",
+				"-emitter", "gcc",
+				"-fix", "true",
 				"/unicode:false",
-				"/wrt:true",
-				"/addressaware:true",
-				"/makefile:Makefile",
-				"/fbc:fbc64",
-				"/fbc-path:C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0",
-				"/src:src",
-				"/module:HttpRest",
-				"/exetype:exe",
-				"/subsystem:windows",
-				"/emitter:gcc",
-				"/fix:true",
-				"/multithreading:false",
-				"/pedantic:false"
-				
+				"-wrt", "true",
+				"-addressaware", "true",
+				"-multithreading", "false",
+				"-usefilesuffix", "true",
+				"-pedantic", "true",
+				"-create-environment-file", "true",
+				"-winver", "1280",
 			],
 			"problemMatcher": [],
 			"group": {
@@ -31,22 +35,5 @@
 				"isDefault": true
 			}
 		},
-		{
-			"label": "Build project",
-			"type": "process",
-			"command": "R:\\Programming\\FreeBASIC-1.09.0-win64-gcc-9.3.0\\fbc64.exe",
-			"args": [
-				"-m src\\Station922",
-				"-x Station922.exe",
-				"-gen gcc -O 3 -Wc -ffunction-sections,-fdata-sections -Wl --gc-sections",
-				"src\\*.bas",
-				"src\\*.RC"
-			],
-			"problemMatcher": [],
-			"group": {
-				"kind": "none",
-				"isDefault": true
-			}
-		}
 	]
 }

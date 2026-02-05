@@ -1,6 +1,58 @@
 {
 	"makefile.configurations": [
 		{
+			"name": "x64 icase debug",
+			"makeArgs": [
+				"FBC_VER=_FBC1101",
+				"GCC_VER=_GCC1310",
+				"PROCESSOR_ARCHITECTURE=AMD64",
+				"MARCH=native",
+				"USE_RUNTIME=FALSE",
+				"USE_CRUNTIME=FALSE",
+				"WINVER=1281",
+				"_WIN32_WINNT=1281",
+				/* "USE_UNICODE=TRUE", */
+				/* "FILE_SUFFIX=_GCC0930_FBC1101_WRT", */
+				"FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\bin\\Release\\x64\\fbc64.exe\"",
+				"CC=\"C:\\Program Files\\mingw64\\bin\\gcc.exe\"",
+				"AS=\"C:\\Program Files\\mingw64\\bin\\as.exe\"",
+				"LD=\"C:\\Program Files\\mingw64\\bin\\gcc.exe\"",
+				"GORC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\bin\\win64\\GoRC.exe\"",
+				"LIB_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\"",
+				"INC_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\inc\"",
+				"LD_SCRIPT=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\\fbextra.x\"",
+				"USE_LD_LINKER=FALSE",
+				"LIBS_OS=-ladvapi32 -lcomctl32 -lcomdlg32 -lgdi32 -limm32 -lkernel32 -lshell32 -luser32 -lversion -lmsimg32 -lws2_32 -lgcc -lmingw32 -lmingwex -lmoldname -lgcc_eh",
+				"FLTO=-flto"
+			],
+		},
+		{
+			"name": "x86 GCC-13.1.0 FBC-1.10.0",
+			"makeArgs": [
+				"FBC_VER=_FBC1100",
+				"GCC_VER=_GCC1310",
+				"PROCESSOR_ARCHITECTURE=x86",
+				"MARCH=i386",
+				"USE_RUNTIME=FALSE",
+				"USE_CRUNTIME=FALSE",
+				"WINVER=1281",
+				"_WIN32_WINNT=1281",
+				/* "USE_UNICODE=TRUE", */
+				/* "FILE_SUFFIX=_GCC0930_FBC1101_WRT", */
+				"FBC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\fbc32.exe\"",
+				"CC=\"C:\\Program Files (x86)\\mingw32\\bin\\gcc.exe\"",
+				"AS=\"C:\\Program Files (x86)\\mingw32\\bin\\as.exe\"",
+				"LD=\"C:\\Program Files (x86)\\mingw32\\bin\\ld.exe\"",
+				"GORC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\bin\\win32\\GoRC.exe\"",
+				"LIB_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\"",
+				"INC_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\inc\"",
+				"LD_SCRIPT=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\\fbextra.x\"",
+				"USE_LD_LINKER=FALSE",
+				"LIBS_OS=-ladvapi32 -lcomctl32 -lcomdlg32 -lgdi32 -limm32 -lkernel32 -lshell32 -luser32 -lversion -lmsimg32 -lws2_32 -lgcc -lmingw32 -lmingwex -lmoldname -lgcc_eh",
+				"FLTO=-flto"
+			],
+		},
+		{
 			"name": "x64 Clang-17.0.1 FBC-1.10.0",
 			"makeArgs": [
 				"FBC_VER=_FBC1100",
@@ -42,48 +94,6 @@
 				"INC_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\inc\"",
 				"TARGET_TRIPLET=i386-pc-windows-gnu",
 				"LD_SCRIPT=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\lib\\win32\\fbextra.x\"",
-				"USE_RUNTIME=FALSE"
-			],
-			"makePath": "C:\\Program Files\\mingw64\\bin\\mingw32-make.exe"
-		},
-		{
-			"name": "x64 GCC-13.1.0 FBC-1.10.0",
-			"makeArgs": [
-				"FBC_VER=_FBC1100",
-				"GCC_VER=_GCC1310",
-				"PROCESSOR_ARCHITECTURE=AMD64",
-				"MARCH=native",
-				/* "FBC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\fbc64.exe\"", */
-				"FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\bin\\Release\\x64\\fbc64.exe\"",
-				"CC=\"C:\\Program Files\\mingw64\\bin\\gcc.exe\"",
-				"AS=\"C:\\Program Files\\mingw64\\bin\\as.exe\"",
-				"LD=\"C:\\Program Files\\mingw64\\bin\\ld.exe\"",
-				"AR=\"C:\\Program Files\\mingw64\\bin\\ar.exe\"",
-				"GORC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\bin\\win64\\GoRC.exe\"",
-				"LIB_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\"",
-				"INC_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\inc\"",
-				"LD_SCRIPT=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\\fbextra.x\"",
-				"USE_RUNTIME=FALSE"
-			],
-			"makePath": "C:\\Program Files\\mingw64\\bin\\mingw32-make.exe"
-		},
-		{
-			"name": "x86 GCC-13.1.0 FBC-1.10.0",
-			"makeArgs": [
-				"FBC_VER=_FBC1100",
-				"GCC_VER=_GCC1310",
-				"PROCESSOR_ARCHITECTURE=x86",
-				"MARCH=i386",
-				/* "FBC=\"C:\\Programming\\FreeBASIC Projects\\fbc-modified\\src\\compiler\\fbc32_icase.exe\"", */
-				"FBC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\fbc32.exe\"",
-				"CC=\"C:\\Program Files (x86)\\mingw32\\bin\\gcc.exe\"",
-				"AS=\"C:\\Program Files (x86)\\mingw32\\bin\\as.exe\"",
-				"LD=\"C:\\Program Files (x86)\\mingw32\\bin\\ld.exe\"",
-				"AR=\"C:\\Program Files (x86)\\mingw32\\bin\\ar.exe\"",
-				"GORC=\"C:\\Program Files (x86)\\FreeBASIC-1.10.0-winlibs-gcc-9.3.0\\bin\\win32\\GoRC.exe\"",
-				"LIB_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\"",
-				"INC_DIR=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\inc\"",
-				"LD_SCRIPT=\"C:\\Program Files (x86)\\FreeBASIC-1.10.1-winlibs-gcc-9.3.0\\lib\\win64\\fbextra.x\"",
 				"USE_RUNTIME=FALSE"
 			],
 			"makePath": "C:\\Program Files\\mingw64\\bin\\mingw32-make.exe"
