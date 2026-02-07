@@ -1577,7 +1577,7 @@ Private Sub IDOK_OnClick( _
 
 End Sub
 
-Private Function OpenFileNameShowDialog( _
+Private Function OpenFileShowDialog( _
 		ByVal hInst As HINSTANCE, _
 		ByVal hOwner As HWND, _
 		ByVal pbuf As TCHAR Ptr, _
@@ -1603,41 +1603,24 @@ Private Function OpenFileNameShowDialog( _
 
 	pbuf[0] = 0
 
-#if WINVER >= &h0500
-	Dim dwSize As DWORD = SizeOf(OPENFILENAME)
-#else
-	' HACK for win95
-	Dim dwSize As DWORD = OPENFILENAME_SIZE_VERSION_400
-#endif
+	#if WINVER >= &h0500
+		Dim dwSize As DWORD = SizeOf(OPENFILENAME)
+	#else
+		' HACK for win95
+		Dim dwSize As DWORD = OPENFILENAME_SIZE_VERSION_400
+	#endif
 
 	Dim fn As OPENFILENAME = Any
 	ZeroMemory(@fn, dwSize)
 
 	fn.lStructSize = dwSize
 	fn.hwndOwner = hOwner
-	' fn.hInstance = NULL
 	fn.lpstrFilter = @FileFilter.szText(0)
-	' fn.lpstrCustomFilter = NULL
-	' fn.nMaxCustFilter = 0
 	fn.nFilterIndex = 1
 	fn.lpstrFile = pbuf
 	fn.nMaxFile = MAX_PATH
-	' fn.lpstrFileTitle = NULL
-	' fn.nMaxFileTitle = 0
-	' fn.lpstrInitialDir = NULL
 	fn.lpstrTitle = @Caption.szText(0)
 	fn.Flags = OFN_FILEMUSTEXIST Or OFN_PATHMUSTEXIST
-	' fn.nFileOffset = 0
-	' fn.nFileExtension = 0
-	' fn.lpstrDefExt = NULL
-	' fn.lCustData = 0
-	' fn.lpfnHook = NULL
-	' fn.lpTemplateName = NULL
-	' fn.lpEditInfo = NULL
-	' fn.lpstrPrompt = NULL
-	' fn.pvReserved = NULL
-	' fn.dwReserved = 0
-	' fn.FlagsEx = 0
 
 	Dim resGetFile As BOOL = GetOpenFileName(@fn)
 
@@ -1668,7 +1651,7 @@ Private Sub BrowseButton_OnClick( _
 	Dim buf As FileNameBuffer = Any
 	Dim nFileOffset As Integer = Any
 	Dim nFileExtension As Integer = Any
-	Dim resOpen As Boolean = OpenFileNameShowDialog( _
+	Dim resOpen As Boolean = OpenFileShowDialog( _
 		this->hInst, _
 		hWin, _
 		@buf.szText(0), _
