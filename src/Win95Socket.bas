@@ -1,15 +1,11 @@
 #include once "Win95Socket.bi"
 #include once "win\mswsock.bi"
-#include once "win\winsock2.bi"
-#include once "win\ws2tcpip.bi"
 
 #include once "Win95Hack.bi"
 
 #define WM_SOCKET WM_USER + 1
 #define WM_SENDCALLBACK WM_USER + 2
 #define WM_READCALLBACK WM_USER + 3
-
-Const SocketListCapacity As Integer = 16
 
 Const Win95WSAVersion = MAKEWORD(1, 1)
 
@@ -122,7 +118,7 @@ End Function
 Private Function Win95SocketStartup( _
 	)As HRESULT
 
-	Dim wsa As WSAData = Any
+	Dim wsa As WSADATA = Any
 	Dim dwError As Long = WSAStartup(Win95WSAVersion, @wsa)
 	If dwError <> NO_ERROR Then
 		Return HRESULT_FROM_WIN32(dwError)
