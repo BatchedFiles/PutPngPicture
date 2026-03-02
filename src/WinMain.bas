@@ -55,7 +55,6 @@ Type HttpRestForm
 	ClientSocket As SOCKET
 	liFileSize As LARGE_INTEGER
 	IsTemporaryFile As FileType
-	hHeap As HANDLE
 	hEvent As HANDLE
 	hWin As HWND
 	pResponseMem As ZString Ptr
@@ -139,13 +138,13 @@ Private Sub RestHeadersCleanup( _
 	)
 
 	If this->CRequest.RequestLine Then
-		HeapFree(this->hHeap, 0, this->CRequest.RequestLine)
+		Deallocate(this->CRequest.RequestLine)
 		this->CRequest.RequestLine = NULL
 	End If
 
 	For i As Integer = 0 To RequestHeadersLength - 1
 		If this->CRequest.Headers(i) Then
-			HeapFree(this->hHeap, 0, this->CRequest.Headers(i))
+			Deallocate(this->CRequest.Headers(i))
 			this->CRequest.Headers(i) = NULL
 		End If
 	Next
@@ -174,7 +173,7 @@ Private Sub HttpRestFormCleanUp( _
 	End If
 
 	If this->CRequest.AllHeaders Then
-		HeapFree(this->hHeap, 0, this->CRequest.AllHeaders)
+		Deallocate(this->CRequest.AllHeaders)
 		this->CRequest.AllHeaders = NULL
 	End If
 
@@ -228,11 +227,7 @@ Private Sub HttpRestFormToString( _
 	this->CRequest.AllHeadersLength = 0
 
 	Dim cbAllHeaders As Integer = (PageSize) * 8
-	this->CRequest.AllHeaders = HeapAlloc( _
-		this->hHeap, _
-		0, _
-		cbAllHeaders _
-	)
+	this->CRequest.AllHeaders = Allocate(cbAllHeaders)
 	If this->CRequest.AllHeaders = NULL Then
 		Exit Sub
 	End If
@@ -286,9 +281,7 @@ Private Sub HttpRestFormToString( _
 
 	RestHeadersCleanup(this)
 
-	Dim pMem As Any Ptr = HeapReAlloc( _
-		this->hHeap, _
-		0, _
+	Dim pMem As Any Ptr = Reallocate( _
 		this->CRequest.AllHeaders, _
 		this->CRequest.AllHeadersLength _
 	)
@@ -511,11 +504,7 @@ Private Function WorkerThread( _
 				Scope
 					Const RESPONSE_MEM_SIZE = 65536 - 1
 
-					this->pResponseMem = HeapAlloc( _
-						this->hHeap, _
-						0, _
-						RESPONSE_MEM_SIZE _
-					)
+					this->pResponseMem = Allocate(RESPONSE_MEM_SIZE)
 					If this->pResponseMem = NULL Then
 						HttpRestFormCleanUp(this)
 
@@ -536,11 +525,7 @@ Private Function WorkerThread( _
 					If this->ResponseLength = SOCKET_ERROR Then
 						Dim dwError As Long = WSAGetLastError()
 
-						HeapFree( _
-							this->hHeap, _
-							0, _
-							this->pResponseMem _
-						)
+						Deallocate(this->pResponseMem)
 
 						this->ResponseLength = 0
 						this->pResponseMem = NULL
@@ -1038,11 +1023,7 @@ Private Sub DialogMain_OnLoad( _
 	End Scope
 
 	Scope
-		Dim pMem As HttpRestFormSettings Ptr = HeapAlloc( _
-			this->hHeap, _
-			0, _
-			SizeOf(HttpRestFormSettings) _
-		)
+		Dim pMem As HttpRestFormSettings Ptr = Allocate(SizeOf(HttpRestFormSettings))
 
 		If pMem Then
 			Dim vec As SettingsVector = Any
@@ -1063,11 +1044,7 @@ Private Sub DialogMain_OnLoad( _
 				Next
 			End If
 
-			HeapFree( _
-				this->hHeap, _
-				0, _
-				pMem _
-			)
+			Deallocate(pMem)
 		End If
 	End Scope
 
@@ -1124,11 +1101,8 @@ Private Sub IDOK_OnClick( _
 			)
 
 			Dim cbBytesUrlParh As Integer = (Length + 1) * SizeOf(TCHAR)
-			this->CRequest.RequestLine = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbBytesUrlParh _
-			)
+			this->CRequest.RequestLine = Allocate(cbBytesUrlParh)
+
 			If this->CRequest.RequestLine = NULL Then
 				HttpRestFormCleanUp(this)
 				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTEDLINE)
@@ -1145,11 +1119,7 @@ Private Sub IDOK_OnClick( _
 		Scope
 			Const AcceptString = __TEXT("*/*")
 			Dim cbAcceptString As Integer = (Len(AcceptString) + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderAccept) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbAcceptString _
-			)
+			this->CRequest.Headers(RequestHeaders.HeaderAccept) = Allocate(cbAcceptString)
 			If this->CRequest.Headers(RequestHeaders.HeaderAccept) = NULL Then
 				HttpRestFormCleanUp(this)
 				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
@@ -1216,11 +1186,7 @@ Private Sub IDOK_OnClick( _
 						)
 
 						Dim cbBytesAuthorization As Integer = (Length + 1) * SizeOf(TCHAR)
-						this->CRequest.Headers(RequestHeaders.HeaderAuthorization) = HeapAlloc( _
-							this->hHeap, _
-							0, _
-							cbBytesAuthorization _
-						)
+						this->CRequest.Headers(RequestHeaders.HeaderAuthorization) = Allocate(cbBytesAuthorization)
 						If this->CRequest.Headers(RequestHeaders.HeaderAuthorization) = NULL Then
 							HttpRestFormCleanUp(this)
 							DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
@@ -1240,11 +1206,7 @@ Private Sub IDOK_OnClick( _
 		Scope
 			Const CloseString = __TEXT("Close")
 			Dim cbCloseString As Integer = (Len(CloseString) + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderConnection) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbCloseString _
-			)
+			this->CRequest.Headers(RequestHeaders.HeaderConnection) = Allocate(cbCloseString)
 			If this->CRequest.Headers(RequestHeaders.HeaderConnection) = NULL Then
 				HttpRestFormCleanUp(this)
 				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
@@ -1270,11 +1232,7 @@ Private Sub IDOK_OnClick( _
 			)
 
 			Dim cbBytesContentType As Integer = (ContentTypeLength + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderContentType) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbBytesContentType _
-			)
+			this->CRequest.Headers(RequestHeaders.HeaderContentType) = Allocate(cbBytesContentType)
 			If this->CRequest.Headers(RequestHeaders.HeaderContentType) = NULL Then
 				HttpRestFormCleanUp(this)
 				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
@@ -1291,11 +1249,7 @@ Private Sub IDOK_OnClick( _
 		Scope
 			Const Expect = __TEXT("100-continue")
 			Dim cbBytesExpect As Integer = (Len(Expect) + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderExpect) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbBytesExpect _
-			)
+			this->CRequest.Headers(RequestHeaders.HeaderExpect) = Allocate(cbBytesExpect)
 			If this->CRequest.Headers(RequestHeaders.HeaderExpect) = NULL Then
 				HttpRestFormCleanUp(this)
 				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
@@ -1312,11 +1266,7 @@ Private Sub IDOK_OnClick( _
 		Scope
 			Const UserAgent = __TEXT("HttpRestClient")
 			Dim cbBytesUserAgent As Integer = (Len(UserAgent) + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbBytesUserAgent _
-			)
+			this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = Allocate(cbBytesUserAgent)
 			If this->CRequest.Headers(RequestHeaders.HeaderUserAgent) = NULL Then
 				HttpRestFormCleanUp(this)
 				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
@@ -1340,11 +1290,7 @@ Private Sub IDOK_OnClick( _
 			)
 
 			Dim cbBytesHeaderHost As Integer = (ServerPortNameLength + 1) * SizeOf(TCHAR)
-			this->CRequest.Headers(RequestHeaders.HeaderHost) = HeapAlloc( _
-				this->hHeap, _
-				0, _
-				cbBytesHeaderHost _
-			)
+			this->CRequest.Headers(RequestHeaders.HeaderHost) = Allocate(cbBytesHeaderHost)
 			If this->CRequest.Headers(RequestHeaders.HeaderHost) = NULL Then
 				HttpRestFormCleanUp(this)
 				DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
@@ -1436,11 +1382,7 @@ Private Sub IDOK_OnClick( _
 				)
 
 				Dim cbContentLength As Integer = (Length + 1) * SizeOf(TCHAR)
-				this->CRequest.Headers(RequestHeaders.HeaderContentLength) = HeapAlloc( _
-					this->hHeap, _
-					0, _
-					cbContentLength _
-				)
+				this->CRequest.Headers(RequestHeaders.HeaderContentLength) = Allocate(cbContentLength)
 				If this->CRequest.Headers(RequestHeaders.HeaderContentLength) = NULL Then
 					HttpRestFormCleanUp(this)
 					DisplayError(this->hInst, hWin, ERROR_NOT_ENOUGH_MEMORY, IDS_REQUESTHEADER)
@@ -1512,19 +1454,12 @@ Private Sub IDOK_OnClick( _
 				)
 
 				' Cleanup
-				HeapFree( _
-					this->hHeap, _
-					0, _
-					this->pResponseMem _
-				)
+				Deallocate(this->pResponseMem)
+
 				this->ResponseLength = 0
 				this->pResponseMem = NULL
 
-				Dim pMem As HttpRestFormSettings Ptr = HeapAlloc( _
-					this->hHeap, _
-					0, _
-					SizeOf(HttpRestFormSettings) _
-				)
+				Dim pMem As HttpRestFormSettings Ptr = Allocate(SizeOf(HttpRestFormSettings))
 
 				If pMem Then
 					Dim vec As SettingsVector = Any
@@ -1547,11 +1482,7 @@ Private Sub IDOK_OnClick( _
 					' Save settings
 					SaveSettings(@vec)
 
-					HeapFree( _
-						this->hHeap, _
-						0, _
-						pMem _
-					)
+					Deallocate(pMem)
 				End If
 
 			Case IDCANCEL
@@ -2269,16 +2200,10 @@ Private Function tWinMain( _
 
 	Dim hWin As HWND = GetDesktopWindow()
 
-	Dim ProcessHeap As HANDLE = GetProcessHeap()
-
 	' We need allocate memory for HttpRestForm
 	' Beekause when main thread is terminated
 	' Thread stack not exists
-	Dim param As HttpRestForm Ptr = HeapAlloc( _
-		ProcessHeap, _
-		0, _
-		SizeOf(HttpRestForm) _
-	)
+	Dim param As HttpRestForm Ptr = Allocate(SizeOf(HttpRestForm))
 
 	If param Then
 
@@ -2295,7 +2220,6 @@ Private Function tWinMain( _
 			param->liFileSize.HighPart = 0
 			param->liFileSize.LowPart = 0
 			param->IsTemporaryFile = FileType.DiskFile
-			param->hHeap = ProcessHeap
 			param->hEvent = CreateEvent(NULL, TRUE, FALSE, NULL)
 
 			ZeroMemory(@param->CRequest, SizeOf(ClientRequest))
