@@ -5,6 +5,9 @@
 #ifdef Deallocate
 #undef Deallocate
 #endif
+#ifdef Reallocate
+#undef Reallocate
+#endif
 #ifdef RtlCopyMemory
 #undef RtlCopyMemory
 #endif
@@ -40,6 +43,7 @@ Declare Sub RtlZeroMemory Alias "RtlZeroMemory"( _
 )
 #define Allocate(dwBytes) HeapAlloc(GetProcessHeap(), 0, (dwBytes))
 #define Deallocate(lpMem) HeapFree(GetProcessHeap(), 0, (lpMem))
+#define Reallocate(lpMem, dwBytes) HeapReAlloc(GetProcessHeap(), 0, (lpMem), (dwBytes))
 #define CopyMemory(d, s, l) RtlCopyMemory((d), (s), (l))
 #define MoveMemory(d, s, l) RtlMoveMemory((d), (s), (l))
 #define ZeroMemory(d, l) RtlZeroMemory((d), (l))
